@@ -7,7 +7,7 @@
 
     <section class="grid">
       <article class="card radar">
-        <h2>安全监测中枢</h2>
+        <h2>访问控制</h2>
         <p>融合链路、设备、模型、任务多维指标，实时安全态势感知。</p>
         <div class="chip-group">
           <span class="chip">零信任访问控制</span>
