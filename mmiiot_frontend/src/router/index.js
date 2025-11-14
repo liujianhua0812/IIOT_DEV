@@ -46,6 +46,11 @@ const routes = [
     name: 'demo-taihao',
     component: () => import('../views/TaihaoDemoView.vue'),
   },
+  {
+    path: '/security/edge-model-access-control',
+    name: 'edge-model-access-control',
+    component: () => import('../views/EdgeModelAccessControlView.vue'),
+  },
 ]
 
 const router = createRouter({

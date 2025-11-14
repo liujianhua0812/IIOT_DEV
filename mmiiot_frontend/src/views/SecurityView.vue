@@ -7,25 +7,49 @@
 
     <section class="grid">
       <article class="card radar">
-        <h2>设备认证</h2>
+        <h2>设备可信认证</h2>
         <p>融合链路、设备、模型、任务多维指标，实时安全态势感知。</p>
         <div class="chip-group">
-          <span class="chip">零信任访问控制</span>
-          <span class="chip">模型安全沙箱</span>
-          <span class="chip">异常行为画像</span>
+          <span class="chip">海康工业相机</span>
+          <span class="chip">工业电机</span>
+          <span class="chip">温度传感器</span>
+          <span class="chip">交换机</span>
+          <span class="chip">路由器</span>
         </div>
       </article>
       <article class="card">
         <h3>细粒度访问控制</h3>
         <p>安全策略自学习迭代，自动编排边云协同防护链路。</p>
-      </article>
-      <article class="card">
-        <h3>可信审计</h3>
-        <p>分布式审计账本，全链路可追溯，确保安全策略可验证、可证明。</p>
+        <div class="chip-group">
+          <button class="chip" @click="navigateToEdgeModel">端侧模型访问控制</button>
+          <button class="chip">云侧模型访问控制</button>
+          <button class="chip">云上数据访问控制</button>
+          <button class="chip">链上数据访问控制</button>
+          <button class="chip">视频数据访问控制</button>
+        </div>
       </article>
     </section>
   </div>
 </template>
+
+<script>
+import { useRouter } from 'vue-router'
+
+export default {
+  name: 'SecurityView',
+  setup() {
+    const router = useRouter()
+
+    const navigateToEdgeModel = () => {
+      router.push({ name: 'edge-model-access-control' })
+    }
+
+    return {
+      navigateToEdgeModel
+    }
+  }
+}
+</script>
 
 <style scoped>
 .page-shell {
@@ -87,11 +111,21 @@
   background: rgba(128, 214, 255, 0.12);
   font-size: 13px;
   letter-spacing: 0.8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: inherit;
+  font-family: inherit;
+}
+
+.chip:hover {
+  background: rgba(128, 214, 255, 0.2);
+  border-color: rgba(128, 214, 255, 0.35);
 }
 
 .radar {
   background: linear-gradient(135deg, rgba(14, 54, 88, 0.95), rgba(4, 28, 48, 0.9));
   border: 1px solid rgba(73, 197, 255, 0.28);
 }
+
 </style>
 
