@@ -51,6 +51,7 @@ export FLASK_ENV=production
 export DB_HOST=192.168.34.14
 export DB_PORT=5432
 export FLASK_PORT=10060
+export CORS_ORIGINS="http://${DEPLOY_IP}:10061,http://localhost:10061"
 nohup python run_prod.py > ../logs/backend.log 2>&1 &
 BACKEND_PID=$!
 cd ..

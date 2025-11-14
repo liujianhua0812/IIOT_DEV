@@ -11,11 +11,22 @@ def create_app() -> Flask:
     # 根据运行模式配置 CORS
     if MODE == "production":
         # 部署模式：限制跨域来源
-        allowed_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
-        CORS(app, resources={
-            r"/api/*": {"origins": allowed_origins},
-            r"/health": {"origins": "*"}
-        })
+        default_origins = "http://166.111.80.127:10061,http://localhost:10061"
+        allowed_origins = os.getenv("CORS_ORIGINS", default_origins).split(",")
+        # 清理空白字符
+        allowed_origins = [origin.strip() for origin in allowed_origins if origin.strip()]
+        CORS(app, 
+             resources={
+                 r"/api/*": {
+                     "origins": allowed_origins,
+                     "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                     "allow_headers": ["Content-Type", "Authorization"],
+                     "supports_credentials": True
+                 },
+                 r"/health": {"origins": "*"}
+             },
+             supports_credentials=True)
+        print(f"CORS 允许的来源: {allowed_origins}")
     else:
         # 开发模式：允许所有来源
         CORS(app, resources={r"/api/*": {"origins": "*"}, r"/health": {"origins": "*"}})
