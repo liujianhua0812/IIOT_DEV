@@ -16,7 +16,7 @@
         </div>
       </article>
       <article class="card">
-        <h3>自适应防护策略</h3>
+        <h3>细粒度访问控制</h3>
         <p>安全策略自学习迭代，自动编排边云协同防护链路。</p>
       </article>
       <article class="card">
