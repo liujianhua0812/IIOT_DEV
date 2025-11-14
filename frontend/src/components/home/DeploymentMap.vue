@@ -55,6 +55,9 @@ const chartOptions = computed(() => {
     map: 'china',
     roam: false,
     aspectScale: 0.8,
+    // layoutCenter: ['50%', '50%'],
+    // layoutSize: '95%',
+    // zoom: 1.2,
     label: {
       show: false,
       color: '#a0c4ff',
@@ -73,9 +76,9 @@ const chartOptions = computed(() => {
   } : {
     // 如果地图数据未加载，使用地理坐标系但不显示地图边界
     roam: true,
-    aspectScale: 0.8,
+    aspectScale: 0.75,
     layoutCenter: ['50%', '50%'],
-    layoutSize: '80%',
+    layoutSize: '95%',
     silent: true, // 不响应鼠标事件
   }
 
@@ -192,7 +195,7 @@ const chartOptions = computed(() => {
 }
 
 .map-view {
-  height: 520px;
+  height: 1000px;
 }
 
 .map-loading,
