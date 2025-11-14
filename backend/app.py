@@ -1,11 +1,24 @@
-from flask import Flask, jsonify
+import os
+from flask import Flask, jsonify, request
 from flask_cors import CORS
+from database import get_db, Device
+from config import MODE
 
 
 def create_app() -> Flask:
     app = Flask(__name__)
-    # 允许所有来源的跨域请求（开发环境）
-    CORS(app, resources={r"/api/*": {"origins": "*"}, r"/health": {"origins": "*"}})
+    
+    # 根据运行模式配置 CORS
+    if MODE == "production":
+        # 部署模式：限制跨域来源
+        allowed_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+        CORS(app, resources={
+            r"/api/*": {"origins": allowed_origins},
+            r"/health": {"origins": "*"}
+        })
+    else:
+        # 开发模式：允许所有来源
+        CORS(app, resources={r"/api/*": {"origins": "*"}, r"/health": {"origins": "*"}})
 
     register_routes(app)
 
@@ -63,10 +76,65 @@ def register_routes(app: Flask) -> None:
         ]
         return jsonify({"deployments": deployments})
 
+    @app.get("/api/devices")
+    def get_devices():
+        """获取设备列表"""
+        try:
+            db = next(get_db())
+            # 获取查询参数
+            page = request.args.get("page", 1, type=int)
+            page_size = request.args.get("page_size", 20, type=int)
+            status = request.args.get("status", None, type=str)
+            search = request.args.get("search", None, type=str)
+
+            # 构建查询
+            query = db.query(Device)
+
+            # 状态筛选
+            if status:
+                query = query.filter(Device.status == status)
+
+            # 搜索筛选（设备名称或编码）
+            if search:
+                query = query.filter(
+                    (Device.name.ilike(f"%{search}%")) | (Device.code.ilike(f"%{search}%"))
+                )
+
+            # 获取总数
+            total = query.count()
+
+            # 分页
+            offset = (page - 1) * page_size
+            devices = query.order_by(Device.created_at.desc()).offset(offset).limit(page_size).all()
+
+            # 转换为字典
+            devices_data = [device.to_dict() for device in devices]
+
+            return jsonify({
+                "devices": devices_data,
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": (total + page_size - 1) // page_size,
+            })
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+        finally:
+            db.close()
+
 
 app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    # 根据运行模式设置参数
+    debug_mode = MODE == "development"
+    port = int(os.getenv("FLASK_PORT", "5001"))
+    
+    print(f"启动模式: {MODE}")
+    print(f"调试模式: {debug_mode}")
+    print(f"监听端口: {port}")
+    print(f"数据库: {os.getenv('DB_HOST', 'default')}:{os.getenv('DB_PORT', 'default')}")
+    
+    app.run(host="0.0.0.0", port=port, debug=debug_mode)
 

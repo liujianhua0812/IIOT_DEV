@@ -9,5 +9,7 @@ export const fetchHomeOverview = () => apiClient.get('/api/home/overview')
 
 export const fetchHomeDeployments = () => apiClient.get('/api/home/deployments')
 
+export const fetchDevices = (params = {}) => apiClient.get('/api/devices', { params })
+
 export default apiClient
 
