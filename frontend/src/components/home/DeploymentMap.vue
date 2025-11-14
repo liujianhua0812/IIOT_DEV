@@ -149,21 +149,33 @@ const chartOptions = computed(() => {
 
 <style scoped>
 .map-card {
+  position: relative;
   border-radius: 20px;
-  padding: 28px;
+  padding: 0;
   background: radial-gradient(circle at top, rgba(16, 55, 92, 0.9), rgba(7, 27, 44, 0.95));
   border: 1px solid rgba(88, 178, 255, 0.12);
   box-shadow: 0 26px 48px rgba(0, 0, 0, 0.35);
   color: #d6ecff;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  overflow: hidden;
+  min-height: 600px;
 }
 
 .map-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 28px;
+  background: linear-gradient(to bottom, rgba(16, 55, 92, 0.95), rgba(16, 55, 92, 0.7), transparent);
+  z-index: 100;
+  pointer-events: none;
+}
+
+.map-header > div {
+  pointer-events: auto;
 }
 
 .map-header h2 {
@@ -184,6 +196,7 @@ const chartOptions = computed(() => {
   gap: 8px;
   font-size: 13px;
   opacity: 0.85;
+  pointer-events: auto;
 }
 
 .legend-dot {
@@ -195,12 +208,16 @@ const chartOptions = computed(() => {
 }
 
 .map-view {
-  height: 1000px;
+  width: 100%;
+  height: 100%;
+  min-height: 600px;
 }
 
 .map-loading,
 .map-error {
-  height: 520px;
+  width: 100%;
+  height: 100%;
+  min-height: 600px;
   display: flex;
   align-items: center;
   justify-content: center;
