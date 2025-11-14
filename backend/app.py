@@ -1,4 +1,5 @@
 import os
+import requests
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from database import get_db, Device
@@ -132,6 +133,48 @@ def register_routes(app: Flask) -> None:
             return jsonify({"error": str(e)}), 500
         finally:
             db.close()
+
+    @app.get("/api/map/china-geojson")
+    def get_china_geojson():
+        """代理获取中国地图 GeoJSON 数据"""
+        try:
+            # 尝试从阿里云获取地图数据
+            url = "https://geo.datav.aliyun.com/areas/bound/geojson?code=100000_full"
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                "Accept": "application/json",
+                "Referer": "https://datav.aliyun.com/"
+            }
+            
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            # 验证响应内容
+            content_type = response.headers.get("content-type", "")
+            if "application/json" not in content_type:
+                raise ValueError(f"响应不是 JSON 格式: {content_type}")
+            
+            geo_json = response.json()
+            
+            # 验证是否是有效的 GeoJSON
+            if not geo_json or not isinstance(geo_json, dict) or "type" not in geo_json:
+                raise ValueError("无效的 GeoJSON 数据")
+            
+            return jsonify(geo_json)
+        except requests.exceptions.RequestException as e:
+            # 如果请求失败，返回错误信息
+            return jsonify({
+                "error": "无法加载地图数据",
+                "message": str(e),
+                "fallback": True
+            }), 503
+        except (ValueError, KeyError) as e:
+            # 如果数据格式错误
+            return jsonify({
+                "error": "地图数据格式错误",
+                "message": str(e),
+                "fallback": True
+            }), 500
 
 
 app = create_app()

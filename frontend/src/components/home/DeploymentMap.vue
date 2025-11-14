@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { registerMap } from 'echarts/core'
 import VChart from 'vue-echarts'
+import { fetchChinaGeoJson } from '@/services/api'
 
 const props = defineProps({
   deployments: {
@@ -19,40 +20,10 @@ const loadMap = async () => {
   }
 
   try {
-    // 尝试从阿里云加载地图数据
-    const response = await fetch('https://geo.datav.aliyun.com/areas/bound/geojson?code=100000_full', {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
-      // 添加超时控制
-      signal: AbortSignal.timeout(10000), // 10秒超时
-    })
+    // 从后端 API 获取地图数据（后端会代理请求到阿里云）
+    const response = await fetchChinaGeoJson()
+    const geoJson = response.data
 
-    // 检查响应状态
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-
-    // 先读取响应文本
-    const text = await response.text()
-    
-    // 检查内容类型
-    const contentType = response.headers.get('content-type')
-    if (!contentType || !contentType.includes('application/json')) {
-      console.warn('响应不是 JSON:', text.substring(0, 200))
-      throw new Error('响应不是 JSON 格式，可能是 HTML 错误页面')
-    }
-
-    // 解析 JSON
-    let geoJson
-    try {
-      geoJson = JSON.parse(text)
-    } catch (parseError) {
-      console.warn('JSON 解析失败:', parseError)
-      throw new Error('无法解析 JSON 响应')
-    }
-    
     // 验证是否是有效的 GeoJSON
     if (!geoJson || !geoJson.type) {
       throw new Error('无效的 GeoJSON 数据')
@@ -64,7 +35,11 @@ const loadMap = async () => {
   } catch (error) {
     console.error('加载地图数据失败', error)
     // 如果加载失败，仍然允许显示散点图（使用地理坐标系但不显示地图边界）
-    mapError.value = '地图边界数据加载失败，将显示简化视图。'
+    if (error.response?.data?.fallback || error.response?.status === 503 || error.response?.status === 500) {
+      mapError.value = '地图边界数据加载失败，将显示简化视图。'
+    } else {
+      mapError.value = '地图边界数据加载失败，将显示简化视图。'
+    }
     mapReady.value = true
   }
 }

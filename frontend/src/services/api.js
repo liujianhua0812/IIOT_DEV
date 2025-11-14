@@ -11,5 +11,7 @@ export const fetchHomeDeployments = () => apiClient.get('/api/home/deployments')
 
 export const fetchDevices = (params = {}) => apiClient.get('/api/devices', { params })
 
+export const fetchChinaGeoJson = () => apiClient.get('/api/map/china-geojson')
+
 export default apiClient
 
