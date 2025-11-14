@@ -25,23 +25,32 @@
 
 ### 访问地址
 
-- **开发模式**：
-  - 前端：http://localhost:5173
-  - 后端：http://localhost:5001
-
-- **部署模式**：
-  - 前端：http://166.111.80.127:10061
-  - 后端：http://166.111.80.127:10060
+- **开发模式/部署模式**（端口统一）：
+  - 后端：http://localhost:10060 / http://166.111.80.127:10060
+  - 展示前端：http://localhost:10061 / http://166.111.80.127:10061
+  - 管理前端：http://localhost:10062 / http://166.111.80.127:10062
+  - LenovoFMS：http://localhost:10063 / http://166.111.80.127:10063
+  - LenonoPLM：http://localhost:10064 / http://166.111.80.127:10064
+  - TellhowTraffic：http://localhost:10065 / http://166.111.80.127:10065
 
 ## 项目结构
 
 ```
 MMIIoT/
-├── frontend/          # Vue 3 前端
+├── mmiiot_frontend/   # 展示型 Vue 前端
 │   ├── src/
-│   │   ├── views/     # 页面视图
-│   │   ├── components/# 组件
-│   │   └── services/  # API 服务
+│   └── package.json
+├── admin_frontend/    # 管理端 Vue 前端
+│   ├── src/
+│   └── package.json
+├── LenovoFMS/         # 联想设备管理系统
+│   ├── src/
+│   └── package.json
+├── LenonoPLM/         # 联想产品生命周期管理
+│   ├── src/
+│   └── package.json
+├── TellhowTraffic/    # 泰豪交通管理系统
+│   ├── src/
 │   └── package.json
 ├── backend/           # Flask 后端
 │   ├── app.py         # 主应用
@@ -51,6 +60,13 @@ MMIIoT/
 └── logs/              # 日志文件
 
 ```
+
+## 环境变量
+
+| 变量名 | 作用 | 默认值 |
+|--------|------|--------|
+| `VITE_API_BASE_URL` | 前端访问后端 API 的基础地址 | `http://localhost:10060` |
+| `VITE_ADMIN_BASE_URL` | 展示前端跳转后台管理站点的地址 | `http://localhost:10062` |
 
 ## 详细文档
 
@@ -78,11 +94,14 @@ MMIIoT/
 | 特性 | 开发模式 | 部署模式 |
 |------|---------|---------|
 | 数据库 | 166.111.80.127:15432 | 192.168.34.14:5432 |
-| 后端地址 | localhost:5001 | 166.111.80.127:10060 |
-| 前端地址 | localhost:5173 | 166.111.80.127:10061 |
+| 后端地址 | localhost:10060 | 166.111.80.127:10060 |
+| 展示前端 | localhost:10061 | 166.111.80.127:10061 |
+| 管理前端 | localhost:10062 | 166.111.80.127:10062 |
+| LenovoFMS | localhost:10063 | 166.111.80.127:10063 |
+| LenonoPLM | localhost:10064 | 166.111.80.127:10064 |
+| TellhowTraffic | localhost:10065 | 166.111.80.127:10065 |
 | CORS | 允许所有来源 | 限制来源 |
 | Debug | 启用 | 关闭 |
-| 前端 | 开发服务器 | 构建后预览 |
 
 ## 许可证
 

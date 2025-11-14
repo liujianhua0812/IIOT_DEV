@@ -7,6 +7,21 @@ const routes = [
     component: () => import('../views/HomeView.vue'),
   },
   {
+    path: '/login',
+    name: 'login',
+    component: () => import('../views/LoginView.vue'),
+  },
+  {
+    path: '/register',
+    name: 'register',
+    component: () => import('../views/RegisterView.vue'),
+  },
+  {
+    path: '/profile',
+    name: 'profile',
+    component: () => import('../views/ProfileView.vue'),
+  },
+  {
     path: '/modal-connectivity',
     name: 'modal-connectivity',
     component: () => import('../views/ModalConnectivityView.vue'),

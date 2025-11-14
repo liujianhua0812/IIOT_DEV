@@ -20,30 +20,95 @@ if [ -f "logs/backend.pid" ]; then
     fi
     rm -f logs/backend.pid
 else
-    # 尝试通过端口查找并停止（开发模式5001，部署模式10060）
-    BACKEND_PID=$(lsof -ti:5001 2>/dev/null || lsof -ti:10060 2>/dev/null || true)
+    # 尝试通过端口查找并停止（端口10060）
+    BACKEND_PID=$(lsof -ti:10060 2>/dev/null || true)
     if [ ! -z "$BACKEND_PID" ]; then
         kill $BACKEND_PID 2>/dev/null || true
         echo -e "${GREEN}后端服务已停止 (PID: $BACKEND_PID)${NC}"
     fi
 fi
 
-# 停止前端
-if [ -f "logs/frontend.pid" ]; then
-    FRONTEND_PID=$(cat logs/frontend.pid)
+# 停止展示前端
+if [ -f "logs/mmiiot_frontend.pid" ]; then
+    FRONTEND_PID=$(cat logs/mmiiot_frontend.pid)
     if ps -p $FRONTEND_PID > /dev/null 2>&1; then
         kill $FRONTEND_PID 2>/dev/null || true
-        echo -e "${GREEN}前端服务已停止 (PID: $FRONTEND_PID)${NC}"
+        echo -e "${GREEN}展示前端已停止 (PID: $FRONTEND_PID)${NC}"
     else
-        echo -e "${YELLOW}前端服务未运行${NC}"
+        echo -e "${YELLOW}展示前端未运行${NC}"
     fi
-    rm -f logs/frontend.pid
+    rm -f logs/mmiiot_frontend.pid
 else
-    # 尝试通过端口查找并停止（开发模式5173，部署模式10061）
-    FRONTEND_PID=$(lsof -ti:5173 2>/dev/null || lsof -ti:4173 2>/dev/null || lsof -ti:10061 2>/dev/null || true)
+    FRONTEND_PID=$(lsof -ti:10061 2>/dev/null || true)
     if [ ! -z "$FRONTEND_PID" ]; then
         kill $FRONTEND_PID 2>/dev/null || true
-        echo -e "${GREEN}前端服务已停止 (PID: $FRONTEND_PID)${NC}"
+        echo -e "${GREEN}展示前端已停止 (PID: $FRONTEND_PID)${NC}"
+    fi
+fi
+
+# 停止管理前端
+if [ -f "logs/admin_frontend.pid" ]; then
+    ADMIN_PID=$(cat logs/admin_frontend.pid)
+    if ps -p $ADMIN_PID > /dev/null 2>&1; then
+        kill $ADMIN_PID 2>/dev/null || true
+        echo -e "${GREEN}管理前端已停止 (PID: $ADMIN_PID)${NC}"
+    else
+        echo -e "${YELLOW}管理前端未运行${NC}"
+    fi
+    rm -f logs/admin_frontend.pid
+else
+    ADMIN_PID=$(lsof -ti:10062 2>/dev/null || true)
+    if [ ! -z "$ADMIN_PID" ]; then
+        kill $ADMIN_PID 2>/dev/null || true
+        echo -e "${GREEN}管理前端已停止 (PID: $ADMIN_PID)${NC}"
+    fi
+fi
+
+# 停止 LenovoFMS
+if [ -f "logs/lenovofms.pid" ]; then
+    FMS_PID=$(cat logs/lenovofms.pid)
+    if ps -p $FMS_PID > /dev/null 2>&1; then
+        kill $FMS_PID 2>/dev/null || true
+        echo -e "${GREEN}LenovoFMS 已停止 (PID: $FMS_PID)${NC}"
+    fi
+    rm -f logs/lenovofms.pid
+else
+    FMS_PID=$(lsof -ti:10063 2>/dev/null || true)
+    if [ ! -z "$FMS_PID" ]; then
+        kill $FMS_PID 2>/dev/null || true
+        echo -e "${GREEN}LenovoFMS 已停止 (PID: $FMS_PID)${NC}"
+    fi
+fi
+
+# 停止 LenonoPLM
+if [ -f "logs/lenonoplm.pid" ]; then
+    PLM_PID=$(cat logs/lenonoplm.pid)
+    if ps -p $PLM_PID > /dev/null 2>&1; then
+        kill $PLM_PID 2>/dev/null || true
+        echo -e "${GREEN}LenonoPLM 已停止 (PID: $PLM_PID)${NC}"
+    fi
+    rm -f logs/lenonoplm.pid
+else
+    PLM_PID=$(lsof -ti:10064 2>/dev/null || true)
+    if [ ! -z "$PLM_PID" ]; then
+        kill $PLM_PID 2>/dev/null || true
+        echo -e "${GREEN}LenonoPLM 已停止 (PID: $PLM_PID)${NC}"
+    fi
+fi
+
+# 停止 TellhowTraffic
+if [ -f "logs/tellhowtraffic.pid" ]; then
+    TRAFFIC_PID=$(cat logs/tellhowtraffic.pid)
+    if ps -p $TRAFFIC_PID > /dev/null 2>&1; then
+        kill $TRAFFIC_PID 2>/dev/null || true
+        echo -e "${GREEN}TellhowTraffic 已停止 (PID: $TRAFFIC_PID)${NC}"
+    fi
+    rm -f logs/tellhowtraffic.pid
+else
+    TRAFFIC_PID=$(lsof -ti:10065 2>/dev/null || true)
+    if [ ! -z "$TRAFFIC_PID" ]; then
+        kill $TRAFFIC_PID 2>/dev/null || true
+        echo -e "${GREEN}TellhowTraffic 已停止 (PID: $TRAFFIC_PID)${NC}"
     fi
 fi
 

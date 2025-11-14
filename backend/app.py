@@ -1,9 +1,13 @@
 import os
 import requests
+import secrets
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from database import get_db, Device
+from database import get_db, Device, User
 from config import MODE
+
+# 简单的 token 存储（生产环境应使用 Redis 或数据库）
+token_store = {}
 
 
 def create_app() -> Flask:
@@ -176,6 +180,177 @@ def register_routes(app: Flask) -> None:
                 "fallback": True
             }), 500
 
+    @app.post("/api/auth/register")
+    def register_user():
+        """用户注册"""
+        try:
+            data = request.get_json()
+            username = data.get("username")
+            email = data.get("email")
+            password = data.get("password")
+
+            if not username or not email or not password:
+                return jsonify({"message": "请填写所有必填项"}), 400
+
+            if len(password) < 6:
+                return jsonify({"message": "密码长度至少为6位"}), 400
+
+            db = next(get_db())
+
+            # 检查用户名是否已存在
+            if db.query(User).filter(User.username == username).first():
+                return jsonify({"message": "用户名已存在"}), 400
+
+            # 检查邮箱是否已存在
+            if db.query(User).filter(User.email == email).first():
+                return jsonify({"message": "邮箱已被注册"}), 400
+
+            # 创建新用户
+            user = User(username=username, email=email)
+            user.set_password(password)
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+            return jsonify({
+                "message": "注册成功",
+                "user": user.to_dict()
+            }), 201
+        except Exception as e:
+            db.rollback()
+            return jsonify({"message": f"注册失败: {str(e)}"}), 500
+        finally:
+            db.close()
+
+    @app.post("/api/auth/login")
+    def login_user():
+        """用户登录"""
+        try:
+            data = request.get_json()
+            username = data.get("username")
+            password = data.get("password")
+
+            if not username or not password:
+                return jsonify({"message": "请输入用户名和密码"}), 400
+
+            db = next(get_db())
+
+            # 查找用户（支持用户名或邮箱登录）
+            user = db.query(User).filter(
+                (User.username == username) | (User.email == username)
+            ).first()
+
+            if not user or not user.check_password(password):
+                return jsonify({"message": "用户名或密码错误"}), 401
+
+            if not user.is_active:
+                return jsonify({"message": "账户已被禁用"}), 403
+
+            # 生成简单的 token（实际生产环境应使用 JWT）
+            token = secrets.token_urlsafe(32)
+            # 存储 token 到用户ID的映射
+            token_store[token] = user.id
+
+            return jsonify({
+                "message": "登录成功",
+                "token": token,
+                "user": user.to_dict()
+            }), 200
+        except Exception as e:
+            return jsonify({"message": f"登录失败: {str(e)}"}), 500
+        finally:
+            db.close()
+
+    @app.get("/api/auth/profile")
+    def get_user_profile():
+        """获取当前用户信息"""
+        try:
+            # 从请求头获取 token
+            auth_header = request.headers.get("Authorization")
+            if not auth_header or not auth_header.startswith("Bearer "):
+                return jsonify({"message": "未授权"}), 401
+
+            token = auth_header.split(" ")[1]
+            user_id = token_store.get(token)
+
+            if not user_id:
+                return jsonify({"message": "无效的 token"}), 401
+
+            db = next(get_db())
+            user = db.query(User).filter(User.id == user_id).first()
+
+            if not user:
+                return jsonify({"message": "用户不存在"}), 404
+
+            return jsonify(user.to_dict()), 200
+        except Exception as e:
+            return jsonify({"message": f"获取用户信息失败: {str(e)}"}), 500
+        finally:
+            if 'db' in locals():
+                db.close()
+
+    @app.put("/api/auth/profile")
+    def update_user_profile():
+        """更新用户信息"""
+        try:
+            # 从请求头获取 token
+            auth_header = request.headers.get("Authorization")
+            if not auth_header or not auth_header.startswith("Bearer "):
+                return jsonify({"message": "未授权"}), 401
+
+            token = auth_header.split(" ")[1]
+            user_id = token_store.get(token)
+
+            if not user_id:
+                return jsonify({"message": "无效的 token"}), 401
+
+            data = request.get_json()
+            username = data.get("username")
+            email = data.get("email")
+
+            if not username or not email:
+                return jsonify({"message": "请填写所有必填项"}), 400
+
+            # 简单的邮箱格式验证
+            import re
+            if not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
+                return jsonify({"message": "请输入有效的邮箱地址"}), 400
+
+            db = next(get_db())
+            user = db.query(User).filter(User.id == user_id).first()
+
+            if not user:
+                return jsonify({"message": "用户不存在"}), 404
+
+            # 检查用户名是否已被其他用户使用
+            existing_user = db.query(User).filter(
+                User.username == username,
+                User.id != user_id
+            ).first()
+            if existing_user:
+                return jsonify({"message": "用户名已被使用"}), 400
+
+            # 检查邮箱是否已被其他用户使用
+            existing_email = db.query(User).filter(
+                User.email == email,
+                User.id != user_id
+            ).first()
+            if existing_email:
+                return jsonify({"message": "邮箱已被使用"}), 400
+
+            # 更新用户信息
+            user.username = username
+            user.email = email
+            db.commit()
+            db.refresh(user)
+
+            return jsonify(user.to_dict()), 200
+        except Exception as e:
+            db.rollback()
+            return jsonify({"message": f"更新用户信息失败: {str(e)}"}), 500
+        finally:
+            db.close()
+
 
 app = create_app()
 
@@ -183,7 +358,7 @@ app = create_app()
 if __name__ == "__main__":
     # 根据运行模式设置参数
     debug_mode = MODE == "development"
-    port = int(os.getenv("FLASK_PORT", "5001"))
+    port = int(os.getenv("FLASK_PORT", "10060"))
     
     print(f"启动模式: {MODE}")
     print(f"调试模式: {debug_mode}")

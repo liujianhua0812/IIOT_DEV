@@ -20,5 +20,5 @@ if __name__ == "__main__":
     print(f"数据库: {os.environ.get('DB_HOST')}:{os.environ.get('DB_PORT')}")
     print("=" * 50)
     
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    app.run(host="0.0.0.0", port=10060, debug=True)
 

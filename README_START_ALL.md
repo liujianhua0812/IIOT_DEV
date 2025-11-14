@@ -15,8 +15,12 @@ start_dev.bat
 ```
 
 **配置说明：**
-- 后端：`http://localhost:5001`
-- 前端：`http://localhost:5173`
+- 后端：`http://localhost:10060`
+- 展示前端：`http://localhost:10061` (`mmiiot_frontend`)
+- 管理前端：`http://localhost:10062` (`admin_frontend`)
+- LenovoFMS：`http://localhost:10063`
+- LenonoPLM：`http://localhost:10064`
+- TellhowTraffic：`http://localhost:10065`
 - 数据库：`166.111.80.127:15432`（外部连接）
 - 模式：开发模式，启用 Debug，允许所有 CORS
 
@@ -34,15 +38,10 @@ start_prod.bat
 
 **配置说明：**
 - 后端：`http://166.111.80.127:10060`
-- 前端：`http://166.111.80.127:10061`（预览模式）
+- 展示前端：`http://166.111.80.127:10061`
+- 管理前端：`http://166.111.80.127:10062`
 - 数据库：`192.168.34.14:5432`（内网连接）
 - 模式：部署模式，关闭 Debug，限制 CORS
-
-**注意：** 部署模式需要先构建前端：
-```bash
-cd frontend
-npm run build
-```
 
 ## 🛑 停止服务
 
@@ -58,17 +57,22 @@ npm run build
 
 启动后，日志文件保存在 `logs/` 目录：
 - `logs/backend.log` - 后端日志
-- `logs/frontend.log` - 前端日志
+- `logs/mmiiot_frontend.log` - 展示前端日志
+- `logs/admin_frontend.log` - 管理前端日志
 - `logs/backend.pid` - 后端进程ID
-- `logs/frontend.pid` - 前端进程ID
+- `logs/mmiiot_frontend.pid` - 展示前端进程ID
+- `logs/admin_frontend.pid` - 管理前端进程ID
 
 查看实时日志：
 ```bash
 # 后端日志
 tail -f logs/backend.log
 
-# 前端日志
-tail -f logs/frontend.log
+# 展示前端日志
+tail -f logs/mmiiot_frontend.log
+
+# 管理前端日志
+tail -f logs/admin_frontend.log
 ```
 
 ## 🔧 手动启动
@@ -85,9 +89,30 @@ export FLASK_ENV=development
 python run_dev.py
 ```
 
-**终端 2 - 启动前端：**
+**终端 2 - 启动展示前端：**
 ```bash
-cd frontend
+cd mmiiot_frontend
+npm run dev
+```
+
+**终端 3 - 启动管理前端：**
+```bash
+cd admin_frontend
+npm run dev
+```
+
+**终端 4-6 - 启动其他前端项目（可选）：**
+```bash
+# LenovoFMS
+cd LenovoFMS
+npm run dev
+
+# LenonoPLM
+cd LenonoPLM
+npm run dev
+
+# TellhowTraffic
+cd TellhowTraffic
 npm run dev
 ```
 
@@ -101,20 +126,32 @@ export FLASK_ENV=production
 python run_prod.py
 ```
 
-**终端 2 - 启动前端：**
+**终端 2 - 启动展示前端：**
 ```bash
-cd frontend
+cd mmiiot_frontend
 export VITE_API_BASE_URL=http://166.111.80.127:10060
 npm run preview -- --port 10061
+```
+
+**终端 3 - 启动管理前端：**
+```bash
+cd admin_frontend
+export VITE_API_BASE_URL=http://166.111.80.127:10060
+npm run preview -- --port 10062
 ```
 
 ## ⚠️ 注意事项
 
 1. **首次运行**：脚本会自动检查并安装依赖
 2. **端口占用**：
-   - 开发模式：确保 5001（后端）和 5173（前端）端口未被占用
-   - 部署模式：确保 10060（后端）和 10061（前端）端口未被占用
-   - 部署模式访问地址：`http://166.111.80.127:10060`（后端）和 `http://166.111.80.127:10061`（前端）
+   - 开发/部署模式：确保以下端口未被占用
+     - 10060：后端
+     - 10061：展示前端 (mmiiot_frontend)
+     - 10062：管理前端 (admin_frontend)
+     - 10063：LenovoFMS
+     - 10064：LenonoPLM
+     - 10065：TellhowTraffic
+   - 部署模式访问地址：`http://166.111.80.127:10060-10065`
 3. **数据库连接**：确保可以访问对应的数据库服务器
 4. **权限问题**：Linux/macOS 需要给脚本添加执行权限：
    ```bash
@@ -126,10 +163,12 @@ npm run preview -- --port 10061
 ### 端口被占用
 ```bash
 # 查看端口占用
-lsof -i :5001  # 后端开发模式
-lsof -i :10060 # 后端部署模式
-lsof -i :5173  # 前端开发模式
-lsof -i :10061 # 前端部署模式
+lsof -i :10060  # 后端
+lsof -i :10061  # 展示前端
+lsof -i :10062  # 管理前端
+lsof -i :10063  # LenovoFMS
+lsof -i :10064  # LenonoPLM
+lsof -i :10065  # TellhowTraffic
 
 # 停止占用端口的进程
 kill -9 <PID>

@@ -6,11 +6,13 @@ import TopNavbar from './components/layout/TopNavbar.vue'
 
 const route = useRoute()
 const isAdminPage = computed(() => route.path.startsWith('/admin'))
+const isAuthPage = computed(() => route.path === '/login' || route.path === '/register')
+const showNavbar = computed(() => !isAdminPage.value && !isAuthPage.value)
 </script>
 
 <template>
   <div class="app-shell" :class="{ 'admin-mode': isAdminPage }">
-    <TopNavbar v-if="!isAdminPage" />
+    <TopNavbar v-if="showNavbar" />
     <main class="content">
       <RouterView />
     </main>
