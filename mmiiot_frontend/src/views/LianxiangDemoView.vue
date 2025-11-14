@@ -5,6 +5,40 @@
       <p>携手联想打造多模态工业互联网标杆应用，验证方案在大型制造场景下的可持续价值。</p>
     </header>
 
+    <section class="systems-section">
+      <h2 class="section-title">应用系统</h2>
+      <div class="systems-grid">
+        <div 
+          class="system-card" 
+          @click="openSystem('http://166.111.80.127:10064')"
+        >
+          <div class="system-icon">PLM</div>
+          <h3>Lenovo PLM</h3>
+          <p>联想产品生命周期管理系统</p>
+          <div class="system-link">
+            <span>访问系统</span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+        <div 
+          class="system-card" 
+          @click="openSystem('http://166.111.80.127:10063')"
+        >
+          <div class="system-icon">FMS</div>
+          <h3>Lenovo FMS</h3>
+          <p>联想设备管理系统</p>
+          <div class="system-link">
+            <span>访问系统</span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="grid">
       <article class="card spotlight">
         <h2>示范场景</h2>
@@ -27,6 +61,12 @@
   </div>
 </template>
 
+<script setup>
+const openSystem = (url) => {
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+</script>
+
 <style scoped>
 .page-shell {
   padding: 32px 64px 64px;
@@ -45,6 +85,108 @@
   max-width: 680px;
   color: rgba(214, 232, 255, 0.74);
   line-height: 1.8;
+}
+
+.systems-section {
+  margin-top: 48px;
+}
+
+.section-title {
+  font-size: 28px;
+  margin-bottom: 24px;
+  letter-spacing: 1px;
+  color: #e6f1ff;
+}
+
+.systems-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+  margin-bottom: 48px;
+}
+
+.system-card {
+  background: linear-gradient(160deg, rgba(12, 35, 58, 0.9), rgba(7, 25, 42, 0.92));
+  border-radius: 20px;
+  padding: 32px;
+  border: 1px solid rgba(88, 178, 255, 0.12);
+  box-shadow: 0 24px 42px rgba(0, 0, 0, 0.32);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.system-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(88, 178, 255, 0.5), rgba(73, 197, 255, 0.8));
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.system-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(73, 197, 255, 0.4);
+  box-shadow: 0 32px 56px rgba(0, 0, 0, 0.4);
+}
+
+.system-card:hover::before {
+  transform: scaleX(1);
+}
+
+.system-icon {
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, rgba(24, 88, 150, 0.8), rgba(8, 32, 54, 0.9));
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: bold;
+  color: #58b2ff;
+  margin-bottom: 20px;
+  border: 1px solid rgba(88, 178, 255, 0.2);
+}
+
+.system-card h3 {
+  font-size: 24px;
+  margin-bottom: 12px;
+  color: #e6f1ff;
+}
+
+.system-card p {
+  color: rgba(214, 232, 255, 0.75);
+  line-height: 1.7;
+  margin-bottom: 20px;
+}
+
+.system-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #58b2ff;
+  font-size: 14px;
+  font-weight: 500;
+  margin-top: auto;
+  transition: gap 0.3s ease;
+}
+
+.system-card:hover .system-link {
+  gap: 12px;
+}
+
+.system-link svg {
+  transition: transform 0.3s ease;
+}
+
+.system-card:hover .system-link svg {
+  transform: translateX(4px);
 }
 
 .grid {
