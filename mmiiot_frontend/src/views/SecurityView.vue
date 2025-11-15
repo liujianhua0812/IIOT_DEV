@@ -6,26 +6,26 @@
     </header>
 
     <section class="grid">
-      <article class="card radar">
+      <article class="card" @click="navigateToDeviceVerification('海康工业相机')">
         <h2>设备可信认证</h2>
         <p>融合链路、设备、模型、任务多维指标，实时安全态势感知。</p>
-        <div class="chip-group">
-          <span class="chip">海康工业相机</span>
-          <span class="chip">工业电机</span>
-          <span class="chip">温度传感器</span>
-          <span class="chip">交换机</span>
-          <span class="chip">路由器</span>
+        <div class="chip-group device-chip-group" @click.stop>
+          <button class="chip" @click="navigateToDeviceVerification('海康工业相机')">海康工业相机（Ethernet Protocol）</button>
+          <button class="chip" @click="navigateToDeviceVerification('西门子电机驱动器')">西门子电机驱动器（ProfiNet Protocol）</button>
+          <button class="chip" @click="navigateToDeviceVerification('TSN交换机')">TSN交换机（TSN Protocol）</button>
+          <button class="chip" @click="navigateToDeviceVerification('温度传感器')">温度传感器（Modbus Protocol）</button>
+          <button class="chip" @click="navigateToDeviceVerification('EtherCat电机驱动器')">EtherCat电机驱动器（EtherCat Protocol）</button>
         </div>
       </article>
-      <article class="card">
-        <h3>细粒度访问控制</h3>
+      <article class="card" @click="navigateToAccessControl('端侧模型访问控制')">
+        <h2>细粒度访问控制</h2>
         <p>安全策略自学习迭代，自动编排边云协同防护链路。</p>
-        <div class="chip-group">
-          <button class="chip" @click="navigateToEdgeModel">端侧模型访问控制</button>
-          <button class="chip">云侧模型访问控制</button>
-          <button class="chip">云上数据访问控制</button>
-          <button class="chip">链上数据访问控制</button>
-          <button class="chip">视频数据访问控制</button>
+        <div class="chip-group access-chip-group" @click.stop>
+          <button class="chip" @click="navigateToAccessControl('端侧模型访问控制')">端侧模型访问控制（Device-Side Model）</button>
+          <button class="chip" @click="navigateToAccessControl('云侧模型访问控制')">云侧模型访问控制（Cloud-Side Model）</button>
+          <button class="chip" @click="navigateToAccessControl('云上数据访问控制')">云上数据访问控制（Cloud Data）</button>
+          <button class="chip" @click="navigateToAccessControl('链上数据访问控制')">链上数据访问控制（Chain Data）</button>
+          <button class="chip" @click="navigateToAccessControl('视频数据访问控制')">视频数据访问控制（Video Data）</button>
         </div>
       </article>
     </section>
@@ -44,8 +44,31 @@ export default {
       router.push({ name: 'edge-model-access-control' })
     }
 
+    const navigateToAccessControl = (type) => {
+      const routeMap = {
+        '端侧模型访问控制': 'edge-model-access-control',
+        '云侧模型访问控制': 'cloud-model-access-control',
+        '云上数据访问控制': 'cloud-data-access-control',
+        '链上数据访问控制': 'chain-data-access-control',
+        '视频数据访问控制': 'video-data-access-control'
+      }
+      const routeName = routeMap[type]
+      if (routeName) {
+        router.push({ name: routeName })
+      }
+    }
+
+    const navigateToDeviceVerification = (deviceType) => {
+      router.push({ 
+        name: 'device-verification', 
+        params: { deviceType } 
+      })
+    }
+
     return {
-      navigateToEdgeModel
+      navigateToEdgeModel,
+      navigateToAccessControl,
+      navigateToDeviceVerification
     }
   }
 }
@@ -84,10 +107,17 @@ export default {
   padding: 24px 28px;
   border: 1px solid rgba(88, 178, 255, 0.12);
   box-shadow: 0 24px 42px rgba(0, 0, 0, 0.36);
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
-.card h2,
-.card h3 {
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 28px 48px rgba(0, 0, 0, 0.4);
+  border-color: rgba(88, 178, 255, 0.2);
+}
+
+.card h2 {
   font-size: 22px;
   margin-bottom: 14px;
 }
@@ -102,6 +132,13 @@ export default {
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 18px;
+}
+
+.device-chip-group,
+.access-chip-group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
 }
 
 .chip {
@@ -122,9 +159,8 @@ export default {
   border-color: rgba(128, 214, 255, 0.35);
 }
 
-.radar {
-  background: linear-gradient(135deg, rgba(14, 54, 88, 0.95), rgba(4, 28, 48, 0.9));
-  border: 1px solid rgba(73, 197, 255, 0.28);
+.device-chip-group .chip {
+  padding: 8px 12px;
 }
 
 </style>

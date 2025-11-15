@@ -1,151 +1,183 @@
 <template>
   <div class="page-shell">
     <div class="container">
-      <div class="sidebar" :class="{ collapsed: sidebarCollapsed }" id="sidebar">
-        <button class="sidebar-toggle" @click="toggleSidebar" :title="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'">
-          <span>{{ sidebarCollapsed ? '▶' : '◀' }}</span>
-        </button>
-        <h2>设备与模型</h2>
-        <div class="device-list">
-          <h3>可用设备</h3>
-          <div id="deviceList">
-            <div v-if="loadingDevices" class="loading-message">加载中...</div>
-            <div v-else-if="devices.length === 0" class="empty-message">
-              {{ errorMessage || '暂无设备数据' }}
-            </div>
-            <div
-              v-for="device in devices"
-              :key="device.id"
-              class="device-item"
-              :class="{ active: currentDeviceId === device.id }"
-              @click="selectDevice(device)"
-            >
-              <h3>{{ device.name }}</h3>
-              <p>ID: {{ device.id }}</p>
-              <p>位置: {{ device.location.region }}</p>
-            </div>
-          </div>
+      <aside class="sidebar">
+        <div class="system-header">
+          <div class="system-title">细粒度访问控制系统</div>
         </div>
-        <div class="model-list">
-          <h3>可用模型</h3>
-          <div id="modelList">
-            <div v-if="loadingModels" class="loading-message">加载中...</div>
-            <div v-else-if="models.length === 0 && currentDeviceId" class="empty-message">
-              该设备暂无模型
-            </div>
-            <div v-else-if="!currentDeviceId" class="empty-message">
-              请先选择设备
-            </div>
-            <div
-              v-for="model in models"
-              :key="model.id"
-              class="model-item"
-              :class="{ active: currentModelId === model.id }"
-              @click="selectModel(model)"
-            >
-              <h3>{{ model.name }}</h3>
-              <p>ID: {{ model.id }}</p>
-              <p>{{ model.description }}</p>
-              <p>状态: <span class="status-badge" :class="model.status">{{ model.status === 'decrypted' ? '已解密' : '已加密' }}</span></p>
-            </div>
-          </div>
+
+        <div 
+          v-for="item in accessControlItems" 
+          :key="item.name"
+          class="device-category"
+          :class="{ active: currentAccessControlType === item.name }"
+          @click="navigateToAccessControl(item.name)"
+        >
+          <span class="category-icon">{{ item.icon }}</span> {{ item.name }}
         </div>
-        <div class="authorized-models-list">
-          <h3>授权周期内可用模型</h3>
-          <div id="authorizedModelsList">
-            <div v-if="authorizedModels.length === 0" class="empty-message">
-              请先选择设备
-            </div>
-            <div v-else>
-              <p class="authorized-count">✓ 当前有 {{ authorizedModels.length }} 个模型在授权周期内</p>
-              <div
-                v-for="model in authorizedModels"
-                :key="model.id"
-                class="model-item authorized"
-                :class="{ active: currentModelId === model.id }"
-                @click="selectModel(model)"
-              >
-                <h3>{{ model.name }}</h3>
-                <p>ID: {{ model.id }}</p>
-                <p>
-                  <strong>授权到期:</strong> {{ model.contract.end_time }}<br>
-                  <strong>剩余天数:</strong> <span class="remaining-days">{{ model.contract.remaining_days }} 天</span><br>
-                  <strong>授权区域:</strong> {{ model.contract.allowed_regions.join(', ') }}
-                </p>
-                <p>状态: <span class="status-badge" :class="model.status">{{ model.status === 'decrypted' ? '已解密' : '已加密' }}</span></p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      </aside>
 
       <div class="main-content">
         <div class="header">
-          <h1>端侧模型访问控制系统</h1>
-          <p>柔性制造产线设备模型推理平台模型</p>
+          <h1>柔性制造产线设备模型授权推理平台</h1>
+        </div>
+
+        <!-- 设备和模型选择栏 -->
+        <div class="device-model-selection">
+          <div class="selection-panel">
+            <div class="device-list">
+              <h3>可用设备</h3>
+              <div class="selection-content">
+                <div v-if="loadingDevices" class="loading-message">加载中...</div>
+                <div v-else-if="devices.length === 0" class="empty-message">
+                  {{ errorMessage || '暂无设备数据' }}
+                </div>
+                <div
+                  v-for="device in devices"
+                  :key="device.id"
+                  class="device-item"
+                  :class="{ active: currentDeviceId === device.id }"
+                  @click="selectDevice(device)"
+                >
+                  <h4>{{ device.name }} <span class="device-meta">ID: {{ device.id }} | 位置: {{ device.location.region }}</span></h4>
+                </div>
+              </div>
+            </div>
+            
+            <div class="model-list">
+              <h3>现有模型</h3>
+              <div class="selection-content">
+                <div v-if="loadingModels" class="loading-message">加载中...</div>
+                <div v-else-if="models.length === 0 && currentDeviceId" class="empty-message">
+                  该设备暂无模型
+                </div>
+                <div v-else-if="!currentDeviceId" class="empty-message">
+                  请先选择设备
+                </div>
+                <div
+                  v-for="model in models"
+                  :key="model.id"
+                  class="model-item"
+                  :class="{ active: currentModelId === model.id }"
+                  @click="selectModel(model)"
+                >
+                  <div class="model-content">
+                    <h4>{{ model.name }} <span class="model-meta">ID: {{ model.id }}</span></h4>
+                    <p>{{ model.description }}</p>
+                  </div>
+                  <div class="model-status">
+                    <span class="status-badge" :class="model.status">{{ model.status === 'decrypted' ? '已解密' : '已加密' }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="authorized-models-list">
+              <h3>授权合约信息</h3>
+              <div class="selection-content">
+                <div v-if="!currentDeviceId" class="empty-message">
+                  请先选择设备
+                </div>
+                <div v-else-if="models.length === 0" class="empty-message">
+                  该设备暂无模型
+                </div>
+                <div v-else>
+                  <div
+                    v-for="model in models"
+                    :key="model.id"
+                    :id="`contract-item-${model.id}`"
+                    class="contract-item"
+                    :class="{ 
+                      'contract-valid': getContractForModel(model.id)?.isAuthorized,
+                      'contract-invalid': !getContractForModel(model.id)?.isAuthorized,
+                      active: currentModelId === model.id 
+                    }"
+                    @click="selectModel(model)"
+                  >
+                    <h4>{{ model.name }} <span class="model-meta">ID: {{ model.id }}</span></h4>
+                    <div v-if="getContractForModel(model.id)?.contract" class="contract-details">
+                      <div class="contract-details-grid">
+                        <div class="contract-field">
+                          <span class="field-label">合约ID:</span>
+                          <span class="field-value">{{ getContractForModel(model.id).contract.contract_id }}</span>
+                        </div>
+                        <div class="contract-field">
+                          <span class="field-label">设备ID:</span>
+                          <span class="field-value">{{ getContractForModel(model.id).contract.device_id }}</span>
+                        </div>
+                        <div class="contract-field">
+                          <span class="field-label">模型ID:</span>
+                          <span class="field-value">{{ getContractForModel(model.id).contract.model_id }}</span>
+                        </div>
+                        <div class="contract-field">
+                          <span class="field-label">授权区域:</span>
+                          <span class="field-value">{{ getContractForModel(model.id).contract.allowed_regions.join(', ') }}</span>
+                        </div>
+                        <div class="contract-field">
+                          <span class="field-label">授权开始:</span>
+                          <span class="field-value">{{ getContractForModel(model.id).contract.start_time }}</span>
+                        </div>
+                        <div class="contract-field">
+                          <span class="field-label">授权结束:</span>
+                          <span class="field-value">{{ getContractForModel(model.id).contract.end_time }}</span>
+                        </div>
+                        <div class="contract-field">
+                          <span class="field-label">{{ getDaysLabel(getContractForModel(model.id).contract.end_time) }}:</span>
+                          <span class="field-value" :class="getDaysClass(getContractForModel(model.id).contract.end_time)">{{ getDaysValue(getContractForModel(model.id).contract.end_time) }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div v-else>
+                      <p class="no-contract">该模型未授权</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="status-bar">
           <div class="status-card">
-            <h3>当前时间</h3>
-            <div class="value">{{ currentTime }}</div>
+            <span class="status-label">当前时间：</span>
+            <span class="status-value">{{ currentTime }}</span>
           </div>
           <div class="status-card">
-            <h3>设备位置</h3>
-            <div class="value">{{ deviceLocation }}</div>
+            <span class="status-label">设备位置：</span>
+            <span class="status-value">{{ deviceLocation }}</span>
           </div>
           <div class="status-card">
-            <h3>模型状态</h3>
-            <div class="value">
-              <span class="status-badge" :class="modelStatus">{{ modelStatus === 'decrypted' ? '已解密' : '已加密' }}</span>
-            </div>
+            <span class="status-label">模型状态：</span>
+            <span class="status-badge" :class="modelStatus">{{ modelStatus === 'decrypted' ? '已解密' : '已加密' }}</span>
           </div>
         </div>
 
-        <div class="contract-section" v-if="contract" id="contractSection">
-          <h2>授权合约信息</h2>
-          <div class="contract-info" id="contractInfo">
-            <div v-if="!contract.contract_id" class="contract-warning">
-              <h3>⚠️ 该模型未授权</h3>
-              <p>设备 <strong>{{ currentDeviceId }}</strong> 未授权使用模型 <strong>{{ currentModelId }}</strong></p>
-              <p>您仍然可以使用加密模型进行推理，但推理精度会很低，且无法解密模型。</p>
-            </div>
-            <template v-else>
-              <div class="contract-item">
-                <label>合约ID</label>
-                <div class="value">{{ contract.contract_id }}</div>
-              </div>
-              <div class="contract-item">
-                <label>设备ID</label>
-                <div class="value">{{ contract.device_id }}</div>
-              </div>
-              <div class="contract-item">
-                <label>模型ID</label>
-                <div class="value">{{ contract.model_id }}</div>
-              </div>
-              <div class="contract-item">
-                <label>授权区域</label>
-                <div class="value">{{ contract.allowed_regions.join(', ') }}</div>
-              </div>
-              <div class="contract-item">
-                <label>授权开始时间</label>
-                <div class="value">{{ contract.start_time }}</div>
-              </div>
-              <div class="contract-item">
-                <label>授权结束时间</label>
-                <div class="value">{{ contract.end_time }}</div>
-              </div>
-            </template>
-          </div>
-        </div>
 
         <div class="action-section">
           <button class="btn btn-primary" @click="decryptModel" :disabled="!canDecrypt || decrypting">
             {{ decrypting ? '解密中...' : '解密模型' }}
           </button>
-          <button class="btn btn-info" @click="showInferenceSection" :disabled="!canInference">
+          <button class="btn btn-info" @click="inferenceDataset" :disabled="!canInference">
             执行推理
           </button>
+        </div>
+
+        <div class="verification-result" v-if="verificationResult" :class="verificationResult.type" id="verificationResult">
+          <h3 v-if="verificationResult.type === 'verifying'">验证中...</h3>
+          <h3 v-else-if="verificationResult.type === 'success'">✓ 验证通过</h3>
+          <h3 v-else>✗ 验证失败</h3>
+          <div class="verification-details">
+            <div class="verification-item" :class="{ checked: verificationResult.authorizationChecked }">
+              <span class="check-icon">{{ verificationResult.authorizationChecked ? '✓' : '' }}</span>
+              <span class="verification-label">授权合约:</span>
+              <span class="verification-message">{{ verificationResult.authorization }}</span>
+            </div>
+            <div class="verification-item" :class="{ checked: verificationResult.codeIntegrityChecked }">
+              <span class="check-icon">{{ verificationResult.codeIntegrityChecked ? '✓' : '' }}</span>
+              <span class="verification-label">代码完整性:</span>
+              <span class="verification-message">{{ verificationResult.codeIntegrity }}</span>
+            </div>
+          </div>
         </div>
 
         <div class="progress-section" v-if="showProgress" id="progressSection">
@@ -153,12 +185,6 @@
             <div class="progress-fill" :style="{ width: progress + '%' }">{{ progress }}%</div>
           </div>
           <p class="progress-text">{{ progressText }}</p>
-        </div>
-
-        <div class="verification-result" v-if="verificationResult" :class="verificationResult.type" id="verificationResult">
-          <h3>{{ verificationResult.type === 'success' ? '✓' : '✗' }} {{ verificationResult.type === 'success' ? '验证通过' : '验证失败' }}</h3>
-          <p>授权合约: {{ verificationResult.authorization }}</p>
-          <p>代码完整性: {{ verificationResult.codeIntegrity }}</p>
         </div>
 
         <div class="inference-section" v-if="showInference" id="inferenceSection">
@@ -181,12 +207,25 @@
 </template>
 
 <script>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 
 export default {
   name: 'EdgeModelAccessControlView',
   setup() {
-    const sidebarCollapsed = ref(false)
+    const router = useRouter()
+    const route = useRoute()
+    
+    const accessControlItems = [
+      { name: '端侧模型访问控制', route: 'edge-model-access-control', icon: '⚙️' },
+      { name: '云侧模型访问控制', route: 'cloud-model-access-control', icon: '☁️' },
+      { name: '云上数据访问控制', route: 'cloud-data-access-control', icon: '💾' },
+      { name: '链上数据访问控制', route: 'chain-data-access-control', icon: '⛓️' },
+      { name: '视频数据访问控制', route: 'video-data-access-control', icon: '🎥' }
+    ]
+    
+    const currentAccessControlType = ref('端侧模型访问控制')
+    
     const currentTime = ref('--')
     const deviceLocation = ref('--')
     const modelStatus = ref('encrypted')
@@ -198,6 +237,7 @@ export default {
     const models = ref([])
     const authorizedModels = ref([])
     const contract = ref(null)
+    const modelContracts = ref([])
     const showProgress = ref(false)
     const progress = ref(0)
     const progressText = ref('')
@@ -214,6 +254,21 @@ export default {
     const loadingModels = ref(false)
     const errorMessage = ref('')
 
+    // 检查合约是否已到期
+    const isContractExpired = computed(() => {
+      if (!contract.value || !contract.value.contract_id || !contract.value.end_time) {
+        return false
+      }
+      try {
+        const endTime = new Date(contract.value.end_time)
+        const now = new Date()
+        return now > endTime
+      } catch (error) {
+        console.error('解析合约到期时间失败:', error)
+        return false
+      }
+    })
+
     // API配置
     // 优先使用环境变量，否则使用当前主机名和5002端口（后端服务端口）
     const API_HOST = import.meta.env.VITE_API_HOST || window.location.hostname
@@ -227,10 +282,54 @@ export default {
     let timeInterval = null
     let statusCheckInterval = null
 
-    const toggleSidebar = () => {
-      sidebarCollapsed.value = !sidebarCollapsed.value
-      if (window.innerWidth > 768) {
-        localStorage.setItem('sidebarCollapsed', sidebarCollapsed.value)
+    // 重置所有模型状态为已加密的函数
+    const resetAllModelsToEncrypted = async () => {
+      try {
+        // 调用后端API重置所有模型状态
+        const res = await fetch(`${API_BASE}/reset-states`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        if (!res.ok) {
+          console.error('重置后端模型状态失败:', res.statusText)
+        } else {
+          const data = await res.json()
+          console.log('后端模型状态已重置:', data.message)
+        }
+      } catch (error) {
+        console.error('调用重置后端模型状态API失败:', error)
+      }
+      
+      // 重置前端所有模型的status为'encrypted'
+      models.value.forEach(model => {
+        model.status = 'encrypted'
+      })
+      // 重置当前模型状态
+      modelStatus.value = 'encrypted'
+      // 重置解密和推理相关状态
+      canDecrypt.value = false
+      canInference.value = false
+      decrypting.value = false
+      // 清空推理结果
+      inferenceResult.value = null
+      verificationResult.value = null
+      showInference.value = false
+    }
+
+    const navigateToAccessControl = async (name) => {
+      currentAccessControlType.value = name
+      const item = accessControlItems.find(item => item.name === name)
+      
+      // 如果点击的是"端侧模型访问控制"，将所有模型状态更新为已加密
+      if (name === '端侧模型访问控制') {
+        await resetAllModelsToEncrypted()
+      }
+      
+      if (item && route.name !== item.route) {
+        router.push({ name: item.route })
       }
     }
 
@@ -281,6 +380,22 @@ export default {
       }
       await loadDeviceModels(device.id)
       await loadAuthorizedModels(device.id)
+      
+      // 自动选择第一个可用模型
+      if (models.value && models.value.length > 0) {
+        await selectModel(models.value[0])
+      } else {
+        // 如果没有可用模型，清空当前模型选择和相关状态
+        currentModelId.value = null
+        contract.value = null
+        modelStatus.value = 'encrypted'
+        verificationResult.value = null
+        inferenceResult.value = null
+        showInference.value = false
+        showUpload.value = false
+        canDecrypt.value = false
+        canInference.value = false
+      }
     }
 
     const loadDeviceModels = async (deviceId) => {
@@ -295,14 +410,101 @@ export default {
         
         const data = await res.json()
         console.log('模型数据:', data)
-        models.value = data.models || []
+        const modelList = data.models || []
+        // 将 yolov5s 模型排在第一位
+        models.value = modelList.sort((a, b) => {
+          const aIsYolov5s = (a.name && a.name.toLowerCase().includes('yolov5s')) || 
+                            (a.id && a.id.toLowerCase().includes('yolov5s'))
+          const bIsYolov5s = (b.name && b.name.toLowerCase().includes('yolov5s')) || 
+                            (b.id && b.id.toLowerCase().includes('yolov5s'))
+          if (aIsYolov5s && !bIsYolov5s) return -1
+          if (!aIsYolov5s && bIsYolov5s) return 1
+          return 0
+        })
+        
+        // 为每个模型加载授权合约信息
+        await loadAllModelContracts(deviceId)
       } catch (error) {
         console.error('加载模型失败:', error)
         models.value = []
+        modelContracts.value = []
         alert(`加载模型失败: ${error.message}`)
       } finally {
         loadingModels.value = false
       }
+    }
+    
+    const loadAllModelContracts = async (deviceId) => {
+      const contracts = []
+      for (const model of models.value) {
+        try {
+          const res = await fetch(`${API_BASE}/contract?device_id=${deviceId}&model_id=${model.id}`)
+          if (res.status === 404) {
+            contracts.push({ model_id: model.id, contract: null, isAuthorized: false })
+          } else {
+            const data = await res.json()
+            const contractData = data.contract
+            const isAuthorized = contractData && contractData.contract_id && !isContractExpiredForModel(contractData)
+            contracts.push({ 
+              model_id: model.id, 
+              contract: contractData, 
+              isAuthorized 
+            })
+          }
+        } catch (error) {
+          console.error(`加载模型 ${model.id} 的合约失败:`, error)
+          contracts.push({ model_id: model.id, contract: null, isAuthorized: false })
+        }
+      }
+      modelContracts.value = contracts
+    }
+    
+    const isContractExpiredForModel = (contractData) => {
+      if (!contractData || !contractData.contract_id || !contractData.end_time) {
+        return true
+      }
+      try {
+        const endTime = new Date(contractData.end_time)
+        const now = new Date()
+        return now > endTime
+      } catch (error) {
+        console.error('解析合约到期时间失败:', error)
+        return true
+      }
+    }
+    
+    const getContractForModel = (modelId) => {
+      return modelContracts.value.find(c => c.model_id === modelId)
+    }
+    
+    const calculateRemainingDays = (endTime) => {
+      if (!endTime) return { days: 0, expired: true }
+      try {
+        const end = new Date(endTime)
+        const now = new Date()
+        const diffTime = end - now
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        return { days: diffDays, expired: diffDays <= 0 }
+      } catch (error) {
+        console.error('计算剩余天数失败:', error)
+        return { days: 0, expired: true }
+      }
+    }
+    
+    const getDaysLabel = (endTime) => {
+      const result = calculateRemainingDays(endTime)
+      return result.expired ? '过期天数' : '剩余天数'
+    }
+    
+    const getDaysValue = (endTime) => {
+      const result = calculateRemainingDays(endTime)
+      const days = result.expired ? Math.abs(result.days) : result.days
+      return `${days} 天`
+    }
+    
+    const getDaysClass = (endTime) => {
+      const result = calculateRemainingDays(endTime)
+      return result.expired ? 'expired-days' : 'remaining-days'
     }
 
     const loadAuthorizedModels = async (deviceId) => {
@@ -310,7 +512,16 @@ export default {
         const res = await fetch(`${API_BASE}/device/authorized-models?device_id=${deviceId}`)
         const data = await res.json()
         if (data.authorized_models && data.authorized_models.length > 0) {
-          authorizedModels.value = data.authorized_models
+          // 将 yolov5s 模型排在第一位
+          authorizedModels.value = data.authorized_models.sort((a, b) => {
+            const aIsYolov5s = (a.name && a.name.toLowerCase().includes('yolov5s')) || 
+                              (a.id && a.id.toLowerCase().includes('yolov5s'))
+            const bIsYolov5s = (b.name && b.name.toLowerCase().includes('yolov5s')) || 
+                              (b.id && b.id.toLowerCase().includes('yolov5s'))
+            if (aIsYolov5s && !bIsYolov5s) return -1
+            if (!aIsYolov5s && bIsYolov5s) return 1
+            return 0
+          })
         } else {
           authorizedModels.value = []
         }
@@ -330,6 +541,18 @@ export default {
       await loadContract()
       canDecrypt.value = true
       canInference.value = true
+      
+      // 滚动到对应的授权合约信息选项框中间
+      nextTick(() => {
+        const contractItem = document.getElementById(`contract-item-${model.id}`)
+        if (contractItem) {
+          contractItem.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest'
+          })
+        }
+      })
     }
 
     const loadModelStatus = async () => {
@@ -373,6 +596,7 @@ export default {
       progressText.value = '开始验证授权合约...'
       canDecrypt.value = false
       decrypting.value = true
+      verificationResult.value = null
 
       try {
         // 步骤1: 验证授权合约和代码完整性
@@ -393,17 +617,51 @@ export default {
 
         const verifyData = await verifyRes.json()
 
+        // 先显示授权验证结果
         verificationResult.value = {
-          type: verifyData.can_decrypt ? 'success' : 'error',
+          type: 'verifying',
           authorization: verifyData.authorization.message,
-          codeIntegrity: verifyData.code_integrity.message
+          codeIntegrity: verifyData.code_integrity.message,
+          authorizationChecked: verifyData.authorization.valid || false,
+          codeIntegrityChecked: false
         }
 
+        // 等待一下让用户看到授权验证的打勾
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        // 然后显示代码完整性验证结果
+        verificationResult.value = {
+          type: 'verifying',
+          authorization: verifyData.authorization.message,
+          codeIntegrity: verifyData.code_integrity.message,
+          authorizationChecked: verifyData.authorization.valid || false,
+          codeIntegrityChecked: verifyData.code_integrity.valid || false
+        }
+
+        // 等待一下让用户看到代码完整性验证的打勾
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        // 最后显示整体验证结果
         if (!verifyData.can_decrypt) {
+          verificationResult.value = {
+            type: 'error',
+            authorization: verifyData.authorization.message,
+            codeIntegrity: verifyData.code_integrity.message,
+            authorizationChecked: verifyData.authorization.valid || false,
+            codeIntegrityChecked: verifyData.code_integrity.valid || false
+          }
           showProgress.value = false
           canDecrypt.value = true
           decrypting.value = false
           return
+        }
+
+        verificationResult.value = {
+          type: 'success',
+          authorization: verifyData.authorization.message,
+          codeIntegrity: verifyData.code_integrity.message,
+          authorizationChecked: verifyData.authorization.valid || false,
+          codeIntegrityChecked: verifyData.code_integrity.valid || false
         }
 
         // 步骤2: 获取解密密钥
@@ -556,35 +814,35 @@ export default {
               <h3>YOLOv5推理结果</h3>
               ${data.annotated_image ? `
                 <div style="text-align: center; margin-bottom: 20px;">
-                  <img src="${data.annotated_image}" alt="检测结果" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;">
+                  <img src="${data.annotated_image}" alt="检测结果" style="max-width: 50%; height: auto; border: 1px solid #ddd; border-radius: 4px;">
                 </div>
               ` : '<p style="text-align: center; color: #e74c3c;">⚠️ 处理后的图像未返回</p>'}
-              <p><strong>检测数量:</strong> ${data.detection_count || 0}</p>
-              <p><strong>推理时间:</strong> ${data.inference_time ? (data.inference_time * 1000).toFixed(2) : 'N/A'}ms</p>
-              <p><strong>模型状态:</strong> <span class="status-badge ${data.model_status}">${data.model_status === 'decrypted' ? '已解密' : '已加密'}</span></p>
+              <p style="color: rgba(214, 232, 255, 0.9);"><strong style="color: #e6f1ff;">检测数量:</strong> <span style="font-size: 20px; font-weight: 700; color: rgba(88, 178, 255, 1);">${data.detection_count || 0}</span></p>
+              <p style="color: rgba(214, 232, 255, 0.9);"><strong style="color: #e6f1ff;">推理时间:</strong> <span style="font-size: 20px; font-weight: 700; color: rgba(88, 178, 255, 1);">${data.inference_time ? (data.inference_time * 1000).toFixed(2) : 'N/A'}ms</span></p>
+              <p style="color: rgba(214, 232, 255, 0.9);"><strong style="color: #e6f1ff;">模型状态:</strong> <span style="font-size: 20px; font-weight: 700; color: rgba(88, 178, 255, 1);">${data.model_status === 'decrypted' ? '已解密' : '已加密'}</span></p>
               ${data.detections && data.detections.length > 0 ? `
                 <div style="margin-top: 20px;">
                   <h4>检测详情:</h4>
                   <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
                     <thead>
-                      <tr style="background: #f8f9fa;">
-                        <th style="padding: 8px; border: 1px solid #ddd;">类别</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">置信度</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">边界框</th>
+                      <tr style="background: rgba(9, 32, 56, 0.8);">
+                        <th style="padding: 8px; border: 1px solid rgba(88, 178, 255, 0.2); color: #e6f1ff;">类别</th>
+                        <th style="padding: 8px; border: 1px solid rgba(88, 178, 255, 0.2); color: #e6f1ff;">置信度</th>
+                        <th style="padding: 8px; border: 1px solid rgba(88, 178, 255, 0.2); color: #e6f1ff;">边界框</th>
                       </tr>
                     </thead>
                     <tbody>
                       ${data.detections.map(det => `
                         <tr>
-                          <td style="padding: 8px; border: 1px solid #ddd;">${det.class_name || 'N/A'}</td>
-                          <td style="padding: 8px; border: 1px solid #ddd;">${(det.confidence * 100).toFixed(2)}%</td>
-                          <td style="padding: 8px; border: 1px solid #ddd;">[${det.bbox ? det.bbox.map(b => b.toFixed(0)).join(', ') : 'N/A'}]</td>
+                          <td style="padding: 8px; border: 1px solid rgba(88, 178, 255, 0.2); color: rgba(214, 232, 255, 0.9);">${det.class_name || 'N/A'}</td>
+                          <td style="padding: 8px; border: 1px solid rgba(88, 178, 255, 0.2); color: rgba(214, 232, 255, 0.9);">${(det.confidence * 100).toFixed(2)}%</td>
+                          <td style="padding: 8px; border: 1px solid rgba(88, 178, 255, 0.2); color: rgba(214, 232, 255, 0.9);">[${det.bbox ? det.bbox.map(b => b.toFixed(0)).join(', ') : 'N/A'}]</td>
                         </tr>
                       `).join('')}
                     </tbody>
                   </table>
                 </div>
-              ` : '<p style="text-align: center; color: #7f8c8d; margin-top: 20px;">未检测到目标</p>'}
+              ` : '<p style="text-align: center; color: rgba(214, 232, 255, 0.7); margin-top: 20px;">未检测到目标</p>'}
             </div>
           `
         } else {
@@ -593,12 +851,12 @@ export default {
               <h3>推理结果</h3>
               ${data.annotated_image ? `
                 <div style="text-align: center; margin-bottom: 20px;">
-                  <img src="${data.annotated_image}" alt="输入图像" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;">
+                  <img src="${data.annotated_image}" alt="输入图像" style="max-width: 50%; height: auto; border: 1px solid #ddd; border-radius: 4px;">
                 </div>
               ` : ''}
-              <p><strong>预测类别:</strong> ${data.predicted_class}</p>
-              <p><strong>置信度:</strong> ${(data.confidence * 100).toFixed(2)}%</p>
-              <p><strong>模型状态:</strong> <span class="status-badge ${data.model_status}">${data.model_status === 'decrypted' ? '已解密' : '已加密'}</span></p>
+              <p style="color: rgba(214, 232, 255, 0.9);"><strong style="color: #e6f1ff;">预测类别:</strong> <span style="font-size: 20px; font-weight: 700; color: rgba(88, 178, 255, 1);">${data.predicted_class}</span></p>
+              <p style="color: rgba(214, 232, 255, 0.9);"><strong style="color: #e6f1ff;">置信度:</strong> <span style="font-size: 20px; font-weight: 700; color: rgba(88, 178, 255, 1);">${(data.confidence * 100).toFixed(2)}%</span></p>
+              <p style="color: rgba(214, 232, 255, 0.9);"><strong style="color: #e6f1ff;">模型状态:</strong> <span style="font-size: 20px; font-weight: 700; color: rgba(88, 178, 255, 1);">${data.model_status === 'decrypted' ? '已解密' : '已加密'}</span></p>
             </div>
             <div class="result-item">
               <h3>所有类别概率</h3>
@@ -632,6 +890,7 @@ export default {
       }
 
       showUpload.value = false
+      showInference.value = true
 
       showProgress.value = true
       progress.value = 0
@@ -673,31 +932,49 @@ export default {
         if (data.dataset === 'yolov5_image_folder') {
           inferenceResult.value = `
             <div class="result-item">
-              <h3>YOLOv5数据集推理结果</h3>
-              <div class="accuracy-display">${data.total_detections}</div>
-              <p style="text-align: center; color: #7f8c8d;">总检测数量</p>
-              <p style="text-align: center; margin-top: 10px;"><strong>处理图片数:</strong> ${data.processed_images}/${data.total_images}</p>
-              <p style="text-align: center;"><strong>平均检测数/图片:</strong> ${data.average_detections_per_image ? data.average_detections_per_image.toFixed(2) : '0.00'}</p>
-              <p style="text-align: center; margin-top: 10px;"><strong>模型状态:</strong> <span class="status-badge ${data.model_status}">${data.model_status === 'decrypted' ? '已解密' : '已加密'}</span></p>
-              ${data.message ? `<p style="text-align: center; color: #27ae60; margin-top: 10px;">${data.message}</p>` : ''}
+              <h3>数据集推理结果</h3>
+              <div class="stats-highlight-box">
+                <div class="stats-list">
+                  <div class="stat-row">
+                    <span class="stat-label">总检测数量:</span>
+                    <span class="stat-value" style="font-size: 22px; font-weight: 700; color: rgba(88, 178, 255, 1);">${data.total_detections}</span>
+                  </div>
+                  <div class="stat-row">
+                    <span class="stat-label">处理图片数:</span>
+                    <span class="stat-value" style="font-size: 22px; font-weight: 700; color: rgba(88, 178, 255, 1);">${data.processed_images}/${data.total_images}</span>
+                  </div>
+                  <div class="stat-row">
+                    <span class="stat-label">平均检测数/图片:</span>
+                    <span class="stat-value" style="font-size: 22px; font-weight: 700; color: rgba(88, 178, 255, 1);">${data.average_detections_per_image ? data.average_detections_per_image.toFixed(2) : '0.00'}</span>
+                  </div>
+                  <div class="stat-row">
+                    <span class="stat-label">模型状态:</span>
+                    <span class="stat-value"><span class="status-badge ${data.model_status}">${data.model_status === 'decrypted' ? '已解密' : '已加密'}</span></span>
+                  </div>
+                </div>
+              </div>
+              ${data.message ? `<p class="result-message">${data.message}</p>` : ''}
               ${data.images && data.images.length > 0 ? `
-                <div style="margin-top: 30px;">
+                <div style="margin-top: 20px;">
                   <h4>处理后的图片（${data.images.length}张）:</h4>
-                  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 15px;">
+                  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 12px;">
                     ${data.images.map(img => {
                       const count = img.detection_count !== undefined ? img.detection_count : (img.detections ? img.detections.length : 0)
+                      const hasDetections = count > 0
+                      const bgColor = hasDetections ? 'rgba(39, 174, 96, 0.2)' : 'rgba(231, 76, 60, 0.2)'
+                      const borderColor = hasDetections ? 'rgba(39, 174, 96, 0.5)' : 'rgba(231, 76, 60, 0.5)'
                       return `
-                        <div style="border: 1px solid #ddd; border-radius: 8px; padding: 10px; background: #f9f9f9;">
-                          <div style="text-align: center; margin-bottom: 10px;">
-                            <img src="${img.annotated_image}" alt="${img.filename}" style="max-width: 100%; height: auto; border-radius: 4px; border: 1px solid #ccc;">
+                        <div style="border: 2px solid ${borderColor}; border-radius: 6px; padding: 8px; background: ${bgColor};">
+                          <div style="text-align: center; margin-bottom: 8px;">
+                            <img src="${img.annotated_image}" alt="${img.filename}" style="max-width: 100%; height: auto; border-radius: 4px; border: 1px solid rgba(88, 178, 255, 0.2);">
                           </div>
-                          <p style="text-align: center; font-weight: bold; margin-bottom: 5px;">${img.filename}</p>
-                          <p style="text-align: center; color: #7f8c8d; font-size: 0.9em;">检测到 ${count} 个目标</p>
+                          <p style="text-align: center; font-weight: 600; margin-bottom: 4px; color: #e6f1ff; font-size: 12px;">${img.filename}</p>
+                          <p style="text-align: center; color: rgba(214, 232, 255, 0.8); font-size: 11px; margin-bottom: 6px;">检测到 ${count} 个目标</p>
                           ${img.detections && img.detections.length > 0 ? `
-                            <div style="margin-top: 10px; font-size: 0.85em;">
+                            <div style="margin-top: 6px; font-size: 11px;">
                               ${img.detections.map(det => `
-                                <div style="padding: 3px 0; border-bottom: 1px solid #eee;">
-                                  <strong>${det.class || det.class_name || 'N/A'}</strong>: ${(det.confidence * 100).toFixed(1)}%
+                                <div style="padding: 2px 0; border-bottom: 1px solid rgba(88, 178, 255, 0.15); color: rgba(214, 232, 255, 0.85);">
+                                  <strong style="color: #e6f1ff;">${det.class || det.class_name || 'N/A'}</strong>: ${(det.confidence * 100).toFixed(1)}%
                                 </div>
                               `).join('')}
                             </div>
@@ -715,32 +992,47 @@ export default {
           inferenceResult.value = `
             <div class="result-item">
               <h3>数据集推理结果</h3>
-              <div class="accuracy-display">${data.accuracy ? data.accuracy.toFixed(2) : '0.00'}%</div>
-              <p style="text-align: center; color: #7f8c8d;">数据集准确率</p>
-              <p style="text-align: center; margin-top: 10px;"><strong>总样本数:</strong> ${data.total_samples || 0}</p>
-              <p style="text-align: center;"><strong>模型状态:</strong> <span class="status-badge ${data.model_status}">${data.model_status === 'decrypted' ? '已解密' : '已加密'}</span></p>
-              ${data.model_status === 'encrypted' ? '<p style="text-align: center; color: #e74c3c; margin-top: 10px;">⚠️ 模型未解密，推理精度较低</p>' : ''}
+              <div class="stats-highlight-box">
+                <div class="stats-list">
+                  <div class="stat-row">
+                    <span class="stat-label">数据集准确率:</span>
+                    <span class="stat-value accuracy" style="font-size: 32px; font-weight: 700; color: rgba(39, 174, 96, 1);">${data.accuracy ? data.accuracy.toFixed(2) : '0.00'}%</span>
+                  </div>
+                  <div class="stat-row">
+                    <span class="stat-label">总样本数:</span>
+                    <span class="stat-value" style="font-size: 22px; font-weight: 700; color: rgba(88, 178, 255, 1);">${data.total_samples || 0}</span>
+                  </div>
+                  <div class="stat-row">
+                    <span class="stat-label">模型状态:</span>
+                    <span class="stat-value"><span class="status-badge ${data.model_status}">${data.model_status === 'decrypted' ? '已解密' : '已加密'}</span></span>
+                  </div>
+                </div>
+              </div>
+              ${data.model_status === 'encrypted' ? '<p class="result-warning">⚠️ 模型未解密，推理精度较低</p>' : ''}
               ${samples.length > 0 ? `
-                <div style="margin-top: 30px;">
+                <div style="margin-top: 20px;">
                   <h4>样本推理结果（显示前${samples.length}个）:</h4>
-                  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; margin-top: 15px;">
-                    ${samples.map((sample, index) => `
-                      <div style="border: 1px solid #ddd; border-radius: 8px; padding: 10px; background: #f9f9f9; ${sample.is_correct ? '' : 'border-color: #e74c3c; background: #ffeaea;'}">
-                        <div style="text-align: center; margin-bottom: 10px;">
-                          <img src="${sample.image}" alt="Sample ${index + 1}" style="max-width: 100%; height: auto; border-radius: 4px; border: 1px solid #ccc;">
+                  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-top: 12px;">
+                    ${samples.map((sample, index) => {
+                      const bgColor = sample.is_correct ? 'rgba(39, 174, 96, 0.2)' : 'rgba(231, 76, 60, 0.2)'
+                      const borderColor = sample.is_correct ? 'rgba(39, 174, 96, 0.5)' : 'rgba(231, 76, 60, 0.5)'
+                      return `
+                      <div style="border: 2px solid ${borderColor}; border-radius: 6px; padding: 8px; background: ${bgColor};">
+                        <div style="text-align: center; margin-bottom: 8px;">
+                          <img src="${sample.image}" alt="Sample ${index + 1}" style="max-width: 100%; height: auto; border-radius: 4px; border: 1px solid rgba(88, 178, 255, 0.2);">
                         </div>
-                        <div style="font-size: 0.85em;">
-                          <p style="margin: 5px 0; font-weight: bold;">真实类别: ${sample.true_class}</p>
-                          <p style="margin: 5px 0; ${sample.is_correct ? 'color: #27ae60;' : 'color: #e74c3c;'}">
-                            预测类别: ${sample.predicted_class}
-                            ${sample.is_correct ? ' ✓' : ' ✗'}
+                        <div style="font-size: 11px;">
+                          <p style="margin: 3px 0; font-weight: 600; color: #e6f1ff;">真实: ${sample.true_class}</p>
+                          <p style="margin: 3px 0; font-weight: 600; ${sample.is_correct ? 'color: #27ae60;' : 'color: #e74c3c;'}">
+                            预测: ${sample.predicted_class} ${sample.is_correct ? '✓' : '✗'}
                           </p>
-                          <p style="margin: 5px 0; color: #7f8c8d; font-size: 0.9em;">
+                          <p style="margin: 3px 0; color: rgba(214, 232, 255, 0.85);">
                             置信度: ${(sample.confidence * 100).toFixed(1)}%
                           </p>
                         </div>
                       </div>
-                    `).join('')}
+                    `
+                    }).join('')}
                   </div>
                 </div>
               ` : ''}
@@ -794,14 +1086,11 @@ export default {
     }
 
     onMounted(async () => {
-      // 恢复侧边栏状态
-      if (window.innerWidth > 768) {
-        const saved = localStorage.getItem('sidebarCollapsed')
-        sidebarCollapsed.value = saved === 'true'
-      } else {
-        sidebarCollapsed.value = true
+      // 如果当前路由是端侧模型访问控制，重置所有模型状态
+      if (route.name === 'edge-model-access-control') {
+        await resetAllModelsToEncrypted()
       }
-
+      
       await loadUserDevices()
       updateTime()
       timeInterval = setInterval(updateTime, 1000)
@@ -828,7 +1117,8 @@ export default {
     })
 
     return {
-      sidebarCollapsed,
+      accessControlItems,
+      currentAccessControlType,
       currentTime,
       deviceLocation,
       modelStatus,
@@ -853,7 +1143,14 @@ export default {
       loadingDevices,
       loadingModels,
       errorMessage,
-      toggleSidebar,
+      isContractExpired,
+      modelContracts,
+      getContractForModel,
+      calculateRemainingDays,
+      getDaysLabel,
+      getDaysValue,
+      getDaysClass,
+      navigateToAccessControl,
       selectDevice,
       selectModel,
       decryptModel,
@@ -871,169 +1168,70 @@ export default {
 
 <style scoped>
 .page-shell {
-  padding: 0;
+  padding: 32px 64px 64px;
   color: #e6f1ff;
   background: radial-gradient(circle at top, rgba(4, 21, 38, 0.96), rgba(3, 13, 23, 0.96));
   min-height: calc(100vh - 80px);
 }
 
 .container {
-  max-width: 100%;
-  margin: 0;
-  background: transparent;
-  border-radius: 0;
-  box-shadow: none;
-  overflow: visible;
   display: flex;
-  min-height: calc(100vh - 80px);
-  position: relative;
+  gap: 24px;
+  min-height: calc(100vh - 200px);
 }
 
 .sidebar {
-  width: 350px;
-  min-width: 280px;
-  max-width: 400px;
-  background: linear-gradient(180deg, rgba(9, 32, 56, 0.95), rgba(4, 19, 34, 0.95));
-  color: #e6f1ff;
-  padding: 30px 20px;
-  overflow-y: auto;
-  transition: all 0.3s ease;
-  position: relative;
-  border-right: 1px solid rgba(88, 178, 255, 0.12);
+  width: 360px;
+  background: linear-gradient(160deg, rgba(9, 32, 56, 0.92), rgba(4, 19, 34, 0.9));
+  border-radius: 20px;
+  padding: 24px;
+  border: 1px solid rgba(88, 178, 255, 0.12);
+  box-shadow: 0 24px 42px rgba(0, 0, 0, 0.36);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.sidebar.collapsed {
-  width: 0;
-  min-width: 0;
-  padding: 0;
-  overflow: visible;
-  border-right: none;
+.system-header {
+  text-align: center;
+  margin-bottom: 12px;
 }
 
-.sidebar-toggle {
-  position: absolute;
-  top: 20px;
-  right: -40px;
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, rgba(88, 178, 255, 0.3), rgba(73, 197, 255, 0.3));
-  color: #e6f1ff;
-  border: 1px solid rgba(88, 178, 255, 0.2);
-  border-radius: 0 8px 8px 0;
+.system-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.3;
+  margin-bottom: 6px;
+}
+
+.device-category {
+  padding: 12px 20px;
   cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(88, 178, 255, 0.12);
+  font-size: 15px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  z-index: 1001;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  transition: all 0.3s ease;
+  gap: 8px;
 }
 
-.sidebar-toggle:hover {
-  background: linear-gradient(135deg, rgba(88, 178, 255, 0.4), rgba(73, 197, 255, 0.4));
-  transform: scale(1.1);
+.category-icon {
+  font-size: 18px;
+  line-height: 1;
 }
 
-.sidebar h2 {
-  margin-bottom: 25px;
-  font-size: 24px;
-  border-bottom: 2px solid rgba(88, 178, 255, 0.3);
-  padding-bottom: 15px;
-  color: #e6f1ff;
+.device-category:hover {
+  background: rgba(128, 214, 255, 0.1);
 }
 
-.device-list, .model-list {
-  margin-bottom: 30px;
-}
-
-.device-list h3, .model-list h3 {
-  margin-bottom: 15px;
-  font-size: 14px;
-  opacity: 0.8;
-  color: rgba(214, 232, 255, 0.8);
-}
-
-.device-item, .model-item {
-  background: rgba(88, 178, 255, 0.1);
-  border-radius: 8px;
-  padding: 15px;
-  margin-bottom: 10px;
-  cursor: pointer;
-  transition: all 0.3s;
-  border: 2px solid transparent;
-}
-
-.device-item:hover, .model-item:hover {
+.device-category.active {
   background: rgba(88, 178, 255, 0.2);
-  transform: translateX(5px);
-  border-color: rgba(88, 178, 255, 0.3);
-}
-
-.device-item.active, .model-item.active {
-  background: rgba(88, 178, 255, 0.25);
-  border-color: rgba(88, 178, 255, 0.5);
-}
-
-.device-item h3, .model-item h3 {
-  font-size: 16px;
-  margin-bottom: 5px;
-  color: #e6f1ff;
-}
-
-.device-item p, .model-item p {
-  font-size: 12px;
-  opacity: 0.8;
-  color: rgba(214, 232, 255, 0.8);
-  margin: 3px 0;
-}
-
-.model-item.authorized {
-  background: rgba(39, 174, 96, 0.15);
-  border-left: 3px solid rgba(39, 174, 96, 0.6);
-}
-
-.model-item.authorized h3 {
-  color: rgba(39, 174, 96, 1);
-}
-
-.authorized-models-list {
-  margin-top: 30px;
-  padding-top: 20px;
-  border-top: 1px solid rgba(88, 178, 255, 0.2);
-}
-
-.authorized-models-list h3 {
-  margin-bottom: 15px;
-  font-size: 14px;
-  opacity: 0.8;
-  color: rgba(214, 232, 255, 0.8);
-}
-
-.empty-message {
-  color: rgba(214, 232, 255, 0.6);
-  font-size: 12px;
-  text-align: center;
-  padding: 20px;
-}
-
-.loading-message {
-  color: rgba(88, 178, 255, 0.8);
-  font-size: 12px;
-  text-align: center;
-  padding: 20px;
-}
-
-.authorized-count {
-  margin-bottom: 10px;
-  color: rgba(39, 174, 96, 1);
-  font-weight: bold;
-  font-size: 13px;
-}
-
-.remaining-days {
-  color: rgba(39, 174, 96, 1);
-  font-weight: bold;
+  border-color: rgba(88, 178, 255, 0.35);
+  font-weight: 700;
 }
 
 .main-content {
@@ -1049,45 +1247,310 @@ export default {
 
 .header h1 {
   color: #e6f1ff;
-  font-size: 32px;
+  font-size: 24px;
   margin-bottom: 10px;
   letter-spacing: 1.4px;
+  font-weight: normal;
 }
 
-.header p {
-  color: rgba(214, 232, 255, 0.74);
-  margin-top: 5px;
+.device-model-selection {
+  margin-bottom: 30px;
+}
+
+.selection-panel {
+  background: linear-gradient(160deg, rgba(9, 32, 56, 0.92), rgba(4, 19, 34, 0.9));
+  border-radius: 20px;
+  padding: 24px;
+  border: 1px solid rgba(88, 178, 255, 0.12);
+  box-shadow: 0 24px 42px rgba(0, 0, 0, 0.36);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+}
+
+.device-list, .model-list, .authorized-models-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.device-list h3, .model-list h3, .authorized-models-list h3 {
+  margin-bottom: 15px;
+  font-size: 16px;
+  color: #e6f1ff;
+  font-weight: 600;
+  border-bottom: 2px solid rgba(88, 178, 255, 0.3);
+  padding-bottom: 10px;
+}
+
+.selection-content {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.selection-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.selection-content::-webkit-scrollbar-track {
+  background: rgba(4, 19, 34, 0.6);
+  border-radius: 3px;
+}
+
+.selection-content::-webkit-scrollbar-thumb {
+  background: rgba(88, 178, 255, 0.3);
+  border-radius: 3px;
+}
+
+.selection-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(88, 178, 255, 0.5);
+}
+
+.device-item, .model-item {
+  background: rgba(88, 178, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: 2px solid transparent;
+}
+
+.model-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.model-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.model-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.device-item:hover, .model-item:hover {
+  background: rgba(88, 178, 255, 0.2);
+  transform: translateX(5px);
+  border-color: rgba(88, 178, 255, 0.3);
+}
+
+.device-item.active, .model-item.active {
+  background: rgba(88, 178, 255, 0.25);
+  border-color: rgba(88, 178, 255, 0.5);
+}
+
+.device-item h4, .model-item h4 {
+  font-size: 14px;
+  margin-bottom: 5px;
+  color: #e6f1ff;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.model-content h4 {
+  margin-bottom: 5px;
+}
+
+.device-meta, .model-meta {
+  font-size: 11px;
+  font-weight: normal;
+  color: rgba(214, 232, 255, 0.6);
+  opacity: 0.8;
+}
+
+.device-item p, .model-content p {
+  font-size: 12px;
+  opacity: 0.8;
+  color: rgba(214, 232, 255, 0.8);
+  margin: 3px 0;
+}
+
+.model-item.authorized {
+  background: rgba(39, 174, 96, 0.15);
+  border-left: 3px solid rgba(39, 174, 96, 0.6);
+}
+
+.model-item.authorized h4 {
+  color: rgba(39, 174, 96, 1);
+}
+
+.authorized-models-list {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.authorized-models-list .contract-item {
+  background: rgba(88, 178, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: 2px solid transparent;
+}
+
+.authorized-models-list .contract-item.contract-valid {
+  background: rgba(39, 174, 96, 0.15);
+  border-left: 3px solid rgba(39, 174, 96, 0.6);
+}
+
+.authorized-models-list .contract-item.contract-invalid {
+  background: rgba(231, 76, 60, 0.15);
+  border-left: 3px solid rgba(231, 76, 60, 0.6);
+}
+
+.authorized-models-list .contract-item:hover {
+  background: rgba(88, 178, 255, 0.2);
+  transform: translateX(5px);
+  border-color: rgba(88, 178, 255, 0.3);
+}
+
+.authorized-models-list .contract-item.contract-valid:hover {
+  background: rgba(39, 174, 96, 0.25);
+}
+
+.authorized-models-list .contract-item.contract-invalid:hover {
+  background: rgba(231, 76, 60, 0.25);
+}
+
+.authorized-models-list .contract-item.active {
+  background: rgba(88, 178, 255, 0.25);
+  border-color: rgba(88, 178, 255, 0.5);
+}
+
+.authorized-models-list .contract-item h4 {
+  font-size: 14px;
+  margin-bottom: 5px;
+  color: #e6f1ff;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.authorized-models-list .contract-item p {
+  font-size: 12px;
+  opacity: 0.8;
+  color: rgba(214, 232, 255, 0.8);
+  margin: 3px 0;
+}
+
+.authorized-models-list .contract-item .no-contract {
+  color: rgba(231, 76, 60, 0.9);
+  font-style: italic;
+}
+
+.contract-details {
+  margin-top: 8px;
+}
+
+.contract-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 12px;
+}
+
+.contract-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.contract-field .field-label {
+  font-size: 11px;
+  color: rgba(214, 232, 255, 0.6);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.contract-field .field-value {
+  font-size: 12px;
+  color: rgba(214, 232, 255, 0.9);
+  word-break: break-word;
+}
+
+.contract-field .field-value.remaining-days {
+  color: rgba(39, 174, 96, 1);
+  font-weight: 600;
+}
+
+.contract-field .field-value.expired-days {
+  color: rgba(231, 76, 60, 1);
+  font-weight: 600;
+}
+
+.authorized-count {
+  margin-bottom: 10px;
+  color: rgba(39, 174, 96, 1);
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.remaining-days {
+  color: rgba(39, 174, 96, 1);
+  font-weight: bold;
+}
+
+.empty-message {
+  color: rgba(214, 232, 255, 0.6);
+  font-size: 16px;
+  text-align: center;
+  padding: 20px;
+}
+
+.loading-message {
+  color: rgba(88, 178, 255, 0.8);
+  font-size: 12px;
+  text-align: center;
+  padding: 20px;
 }
 
 .status-bar {
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
 }
 
 .status-card {
   background: linear-gradient(160deg, rgba(9, 32, 56, 0.92), rgba(4, 19, 34, 0.9));
   color: #e6f1ff;
-  padding: 20px;
+  padding: 12px 16px;
   border-radius: 10px;
   flex: 1;
   min-width: 200px;
   border: 1px solid rgba(88, 178, 255, 0.12);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.status-card h3 {
+.status-label {
   font-size: 14px;
   opacity: 0.9;
-  margin-bottom: 10px;
   color: rgba(214, 232, 255, 0.8);
+  white-space: nowrap;
 }
 
-.status-card .value {
-  font-size: 24px;
+.status-value {
+  font-size: 16px;
   font-weight: bold;
   color: #e6f1ff;
+  flex: 1;
 }
 
 .status-badge {
@@ -1158,6 +1621,7 @@ export default {
   border-radius: 8px;
   color: rgba(255, 193, 7, 0.9);
   grid-column: 1 / -1;
+  margin-bottom: 20px;
 }
 
 .contract-warning h3 {
@@ -1168,6 +1632,20 @@ export default {
 .contract-warning p {
   margin: 5px 0;
   color: rgba(255, 193, 7, 0.9);
+}
+
+.contract-warning.expired {
+  background: rgba(231, 76, 60, 0.15);
+  border: 2px solid rgba(231, 76, 60, 0.4);
+  color: rgba(231, 76, 60, 0.9);
+}
+
+.contract-warning.expired h3 {
+  color: rgba(231, 76, 60, 1);
+}
+
+.contract-warning.expired p {
+  color: rgba(231, 76, 60, 0.9);
 }
 
 .action-section {
@@ -1216,7 +1694,7 @@ export default {
 }
 
 .progress-section {
-  margin: 20px 0;
+  margin: 12px 0 20px 0;
 }
 
 .progress-bar {
@@ -1250,6 +1728,14 @@ export default {
   margin: 20px 0;
   padding: 15px;
   border-radius: 8px;
+  background: rgba(9, 32, 56, 0.6);
+  border: 1px solid rgba(88, 178, 255, 0.2);
+}
+
+.verification-result.verifying {
+  background: rgba(9, 32, 56, 0.6);
+  border: 1px solid rgba(88, 178, 255, 0.3);
+  color: #e6f1ff;
 }
 
 .verification-result.success {
@@ -1265,11 +1751,49 @@ export default {
 }
 
 .verification-result h3 {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  font-size: 18px;
 }
 
-.verification-result p {
-  margin: 5px 0;
+.verification-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.verification-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  transition: all 0.3s ease;
+}
+
+.verification-item.checked {
+  color: rgba(39, 174, 96, 1);
+}
+
+.verification-item .check-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: bold;
+  color: rgba(39, 174, 96, 1);
+}
+
+.verification-item .verification-label {
+  font-weight: 600;
+  min-width: 100px;
+  color: inherit;
+}
+
+.verification-item .verification-message {
+  flex: 1;
+  color: inherit;
+  opacity: 0.9;
 }
 
 .inference-section {
@@ -1326,18 +1850,137 @@ export default {
 
 .result-item h3 {
   color: #e6f1ff;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  font-size: 18px;
 }
 
 .result-item h4 {
   color: rgba(214, 232, 255, 0.9);
   margin-top: 15px;
   margin-bottom: 10px;
+  font-size: 14px;
 }
 
 .result-item p {
   color: rgba(214, 232, 255, 0.8);
   margin: 8px 0;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.stats-highlight-box {
+  background: linear-gradient(135deg, rgba(88, 178, 255, 0.15), rgba(73, 197, 255, 0.15));
+  border: 2px solid rgba(88, 178, 255, 0.4);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 12px rgba(88, 178, 255, 0.2);
+}
+
+.stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 0;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(9, 32, 56, 0.3);
+  border-radius: 6px;
+  border: 1px solid rgba(88, 178, 255, 0.2);
+}
+
+.stat-item {
+  background: rgba(9, 32, 56, 0.4);
+  border-radius: 6px;
+  padding: 10px 12px;
+  text-align: center;
+  border: 1px solid rgba(88, 178, 255, 0.1);
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #e6f1ff;
+  margin-bottom: 4px;
+  line-height: 1.2;
+}
+
+.stat-row .stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: rgba(88, 178, 255, 1);
+  margin-bottom: 0;
+}
+
+.stat-value.accuracy {
+  font-size: 32px;
+  font-weight: 700;
+  color: rgba(39, 174, 96, 1);
+}
+
+:deep(.stat-row .stat-value) {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  color: rgba(88, 178, 255, 1) !important;
+  margin-bottom: 0;
+}
+
+:deep(.stat-value.accuracy) {
+  font-size: 32px !important;
+  font-weight: 700 !important;
+  color: rgba(39, 174, 96, 1) !important;
+}
+
+:deep(.stats-highlight-box) {
+  background: linear-gradient(135deg, rgba(88, 178, 255, 0.15), rgba(73, 197, 255, 0.15)) !important;
+  border: 2px solid rgba(88, 178, 255, 0.4) !important;
+  border-radius: 10px !important;
+  padding: 16px !important;
+  margin-bottom: 12px !important;
+  box-shadow: 0 4px 12px rgba(88, 178, 255, 0.2) !important;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: rgba(214, 232, 255, 0.7);
+  font-weight: 500;
+}
+
+.stat-row .stat-label {
+  font-size: 16px;
+  color: rgba(214, 232, 255, 0.9);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.result-message {
+  text-align: center;
+  color: rgba(39, 174, 96, 1);
+  margin-top: 12px;
+  padding: 8px;
+  background: rgba(39, 174, 96, 0.1);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.result-warning {
+  text-align: center;
+  color: rgba(231, 76, 60, 1);
+  margin-top: 12px;
+  padding: 8px;
+  background: rgba(231, 76, 60, 0.1);
+  border-radius: 4px;
+  font-size: 13px;
 }
 
 .result-item table {
@@ -1389,57 +2032,33 @@ export default {
   font-size: 14px;
 }
 
-@media (max-width: 768px) {
-  .container {
-    flex-direction: row;
-    position: relative;
-  }
-
-  .sidebar {
-    width: 280px;
-    max-width: 80%;
-    min-width: 0;
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100vh;
-    z-index: 999;
-    transform: translateX(-100%);
-    transition: transform 0.3s ease;
-  }
-
-  .sidebar:not(.collapsed) {
-    transform: translateX(0);
-  }
-
-  .sidebar.collapsed {
-    transform: translateX(-100%);
-  }
-
-  .sidebar-toggle {
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    right: auto;
-    border-radius: 8px;
-    z-index: 1001;
-  }
-
+@media (max-width: 1100px) {
   .main-content {
+    flex-direction: column;
+  }
+  .sidebar {
     width: 100%;
+  }
+  .selection-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-shell {
+    padding: 16px 24px 32px;
+  }
+  .main-content {
     padding: 20px 15px;
   }
-
   .header h1 {
     font-size: 24px;
   }
-
-  .status-bar {
-    flex-direction: column;
+  .selection-panel {
+    padding: 16px;
   }
-
-  .status-card {
-    min-width: 100%;
+  .selection-content {
+    max-height: 300px;
   }
 }
 </style>
