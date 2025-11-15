@@ -1,155 +1,259 @@
-<script setup>
-import { computed } from 'vue'
-import { useRoute, useRouter, RouterView } from 'vue-router'
-
-const router = useRouter()
-const route = useRoute()
-
-const menuItems = [
-  { label: '设备管理', name: 'devices', description: '统一管理工业终端设备资产' },
-  { label: '模型管理', name: 'models', description: '模型版本、部署与监控全流程' },
-  { label: '任务管理', name: 'tasks', description: '调度任务编排与执行监控' },
-]
-
-const activeName = computed(() => route.name)
-
-const navigate = (name) => {
-  router.push({ name })
-}
-</script>
-
 <template>
-  <div class="admin-shell">
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <h2>后台管理中心</h2>
-        <p>运维中枢 · 实时掌控平台运行状态</p>
-      </div>
-
-      <nav class="sidebar-menu">
-        <button
-          v-for="item in menuItems"
-          :key="item.name"
-          :class="['menu-item', { active: activeName === item.name }]"
-          @click="navigate(item.name)"
+  <div class="main-layout">
+    <el-container class="layout-container">
+      <el-aside :width="sidebarWidth" class="sidebar" :style="{ width: sidebarWidth }">
+        <div class="logo">
+          <h2 v-if="!isCollapse" class="logo-text">后台管理中心</h2>
+          <h2 v-else class="logo-text-collapsed">MMI</h2>
+        </div>
+        <el-menu
+          :default-active="activeMenu"
+          :collapse="isCollapse"
+          :collapse-transition="false"
+          background-color="#001529"
+          text-color="rgba(255, 255, 255, 0.65)"
+          active-text-color="#ffffff"
+          router
         >
-          <span class="label">{{ item.label }}</span>
-          <small>{{ item.description }}</small>
-        </button>
-      </nav>
-    </aside>
+          <el-menu-item :index="`/${item.name}`" v-for="item in menuItems" :key="item.name">
+            <el-icon><component :is="item.iconComponent" /></el-icon>
+            <template #title>
+              <span>{{ item.label }}</span>
+            </template>
+          </el-menu-item>
+        </el-menu>
+      </el-aside>
 
-    <section class="admin-content">
-      <RouterView />
-    </section>
+      <el-container class="main-container">
+        <el-header class="header">
+          <div style="flex: 1; display: flex; align-items: center; justify-content: space-between;">
+            <el-button
+              :icon="isCollapse ? Expand : Fold"
+              @click="isCollapse = !isCollapse"
+              text
+            />
+            <div style="display: flex; align-items: center; gap: 20px;">
+              <el-dropdown @command="handleCommand">
+                <span style="cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                  <el-avatar :size="32">{{ avatarText }}</el-avatar>
+                  <span>{{ user?.username || '用户' }}</span>
+                  <el-icon><ArrowDown /></el-icon>
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="profile">编辑个人信息</el-dropdown-item>
+                    <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
+          </div>
+        </el-header>
+
+        <el-main class="content">
+          <router-view />
+        </el-main>
+      </el-container>
+    </el-container>
   </div>
 </template>
 
+<script setup>
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useAuth } from '@/composables/useAuth'
+import {
+  Monitor,
+  Setting,
+  Document,
+  Expand,
+  Fold,
+  ArrowDown
+} from '@element-plus/icons-vue'
+
+const route = useRoute()
+const router = useRouter()
+const { user, logout } = useAuth()
+
+const isCollapse = ref(false)
+
+const menuItems = [
+  { label: '设备管理', name: 'devices', iconComponent: Monitor },
+  { label: '模型管理', name: 'models', iconComponent: Setting },
+  { label: '任务管理', name: 'tasks', iconComponent: Document },
+]
+
+const activeMenu = computed(() => {
+  // 使用路由路径，el-menu 的 router 属性会自动匹配
+  return route.path || '/devices'
+})
+
+const sidebarWidth = computed(() => isCollapse.value ? '64px' : '200px')
+
+const avatarText = computed(() => {
+  if (!user.value || !user.value.username) return 'U'
+  return user.value.username.charAt(0).toUpperCase()
+})
+
+const handleCommand = (command) => {
+  if (command === 'logout') {
+    logout()
+  } else if (command === 'profile') {
+    router.push({ name: 'profile' })
+  }
+}
+</script>
+
 <style scoped>
-.admin-shell {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  min-height: 100vh;
-  background: #ffffff;
-  color: #303133;
+.main-layout {
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+}
+
+.layout-container {
+  height: 100%;
+  display: flex;
+  flex-direction: row;
+}
+
+.main-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* 强制设置侧边栏宽度 */
+:deep(.el-aside.sidebar) {
+  width: v-bind(sidebarWidth) !important;
+  min-width: v-bind(sidebarWidth) !important;
+  max-width: v-bind(sidebarWidth) !important;
+  transition: width 0.3s, min-width 0.3s, max-width 0.3s;
+  flex-shrink: 0;
 }
 
 .sidebar {
-  padding: 32px 24px;
-  border-right: 1px solid #e4e7ed;
-  background: #ffffff;
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-}
-
-.sidebar-header {
-  padding-bottom: 24px;
-  border-bottom: 1px solid #e4e7ed;
-}
-
-.sidebar-header h2 {
-  font-size: 22px;
-  margin-bottom: 8px;
-  letter-spacing: 0.5px;
-  color: #303133;
-  font-weight: 600;
-}
-
-.sidebar-header p {
-  margin: 0;
-  color: #909399;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.sidebar-menu {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.menu-item {
-  padding: 16px 18px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  background: #f5f7fa;
-  color: #606266;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  font-size: 14px;
-}
-
-.menu-item .label {
-  font-weight: 500;
-  color: #303133;
-}
-
-.menu-item small {
-  color: #909399;
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.menu-item:hover {
-  background: #ecf5ff;
-  border-color: #b3d8ff;
-  color: #409eff;
-}
-
-.menu-item:hover .label {
-  color: #409eff;
-}
-
-.menu-item:hover small {
-  color: #66b1ff;
-}
-
-.menu-item.active {
-  background: linear-gradient(135deg, #409eff, #66b1ff);
-  color: #ffffff;
-  border-color: transparent;
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
-}
-
-.menu-item.active .label {
-  color: #ffffff;
-  font-weight: 600;
-}
-
-.menu-item.active small {
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.admin-content {
-  padding: 32px 40px;
+  background: #001529;
+  height: 100vh;
   overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 0.3s;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.logo {
+  border-bottom: 1px solid #1f2937;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.logo-text {
+  color: #fff;
+  padding: 0;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-align: center;
+  width: 100%;
+}
+
+.logo-text-collapsed {
+  color: #fff;
+  padding: 0;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-align: center;
+  width: 100%;
+  letter-spacing: 1px;
+}
+
+/* Element Plus菜单折叠样式优化 */
+:deep(.el-menu) {
+  border-right: none;
+  width: 100%;
+}
+
+:deep(.el-menu--collapse) {
+  width: 100%;
+}
+
+:deep(.el-menu--collapse .el-menu-item),
+:deep(.el-menu--collapse .el-sub-menu__title) {
+  padding: 0 !important;
+  text-align: center;
+  justify-content: center;
+}
+
+:deep(.el-menu--collapse .el-menu-item .el-icon),
+:deep(.el-menu--collapse .el-sub-menu__title .el-icon) {
+  margin-right: 0;
+  margin-left: 0;
+}
+
+:deep(.el-menu-item) {
+  height: 50px;
+  line-height: 50px;
+}
+
+:deep(.el-menu-item.is-active) {
+  background-color: #1890ff !important;
+  color: #ffffff !important;
+}
+
+:deep(.el-menu-item.is-active .el-icon) {
+  color: #ffffff !important;
+}
+
+:deep(.el-menu-item.is-active span) {
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+/* 确保活动菜单项的所有文字和图标都是白色 */
+:deep(.el-menu-item.is-active *) {
+  color: #ffffff !important;
+}
+
+/* 悬停状态优化 */
+:deep(.el-menu-item:hover) {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+:deep(.el-menu-item:hover .el-icon) {
+  color: #ffffff !important;
+}
+
+/* 确保菜单项在折叠时居中 */
+:deep(.el-menu--collapse .el-menu-item) {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.header {
+  background: #fff;
+  border-bottom: 1px solid #e4e7ed;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  height: 60px;
+}
+
+.content {
   background: #f5f7fa;
+  padding: 20px;
+  overflow-y: auto;
+  height: calc(100vh - 60px);
 }
 </style>
-

@@ -19,7 +19,6 @@ const menuItems = [
   { label: '融合调度', route: { name: 'scheduling' } },
   { label: '联想应用示范', route: { name: 'demo-lianxiang' } },
   { label: '泰豪应用示范', route: { name: 'demo-taihao' } },
-  { label: '后台管理', external: adminBaseURL },
 ]
 
 const activeName = computed(() => route.name)
@@ -51,6 +50,11 @@ const toggleUserMenu = () => {
 const handleEditProfile = () => {
   showUserMenu.value = false
   router.push({ name: 'profile' })
+}
+
+const handleAdmin = () => {
+  showUserMenu.value = false
+  window.open(adminBaseURL, '_blank', 'noopener')
 }
 
 const handleLogout = () => {
@@ -108,6 +112,9 @@ const avatarText = computed(() => {
             <div class="user-email">{{ user?.email }}</div>
           </div>
           <div class="menu-divider"></div>
+          <button class="menu-item" @click="handleAdmin">
+            <span>后台管理</span>
+          </button>
           <button class="menu-item" @click="handleEditProfile">
             <span>编辑个人信息</span>
           </button>

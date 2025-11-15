@@ -1,0 +1,1826 @@
+<script setup>
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+
+// 运行状态
+const runStatus = ref('RUN') // RUN, IDLE, STOP
+const currentTime = ref(new Date())
+const productionLine = ref('柔性贴标产线-01')
+
+// 更新时间的定时器
+let timeInterval = null
+onMounted(() => {
+  timeInterval = setInterval(() => {
+    currentTime.value = new Date()
+  }, 1000)
+})
+onUnmounted(() => {
+  if (timeInterval) clearInterval(timeInterval)
+})
+
+// 格式化时间
+const formattedTime = computed(() => {
+  return currentTime.value.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
+})
+
+// 状态颜色
+const statusColor = computed(() => {
+  switch (runStatus.value) {
+    case 'RUN': return '#67c23a'
+    case 'IDLE': return '#e6a23c'
+    case 'STOP': return '#f56c6c'
+    default: return '#909399'
+  }
+})
+
+// 流程步骤（直线运动：读码 → 贴标 → 质检）
+const processSteps = ref([
+  { id: 'read', name: '读码', active: true },
+  { id: 'label', name: '贴标', active: false },
+  { id: 'qc', name: '质检', active: false }
+])
+
+// 当前工位
+const currentStation = ref('read')
+
+// 统计数据
+const stats = ref({
+  cycleTime: 12.5, // 秒
+  passed: 1250,
+  failed: 23,
+  trend: [120, 125, 118, 130, 128, 135, 132] // 最近7个节拍的趋势
+})
+
+// 设备数据
+const devices = {
+  read: [
+    // 读码区：两个摄像头、一个指示灯、一个PLC、一个交换机、一个伺服电机
+    { 
+      id: 'camera-read-1', 
+      name: '读码摄像头1', 
+      type: 'camera', 
+      station: 'read',
+      status: 'online',
+      position: { x: 21.27, y: -57.96 },
+      details: {
+        ip: '192.168.1.101',
+        exposure: '8ms',
+        resolution: '1920x1080'
+      }
+    },
+    { 
+      id: 'camera-read-2', 
+      name: '读码摄像头2', 
+      type: 'camera', 
+      station: 'read',
+      status: 'online',
+      position: { x: 93.99, y: -35.72 },
+      details: {
+        ip: '192.168.1.102',
+        exposure: '8ms',
+        resolution: '1920x1080'
+      }
+    },
+    { 
+      id: 'indicator-read-1', 
+      name: '指示灯', 
+      type: 'indicator', 
+      station: 'read',
+      status: 'online',
+      position: { x: 65.77, y: -0.15 },
+      details: {
+        status: '运行中',
+        color: '绿色'
+      }
+    },
+    { 
+      id: 'plc-read-1', 
+      name: 'PLC控制器', 
+      type: 'plc', 
+      station: 'read',
+      status: 'online',
+      position: { x: 85.47, y: 40.40 },
+      details: {
+        ip: '192.168.1.103',
+        program: 'ReadCode_V2.1',
+        port: 'ETH1'
+      }
+    },
+    { 
+      id: 'switch-read-1', 
+      name: '交换机', 
+      type: 'switch', 
+      station: 'read',
+      status: 'online',
+      position: { x: 132.59, y: -48.55 },
+      details: {
+        ip: '192.168.1.104',
+        model: 'TL-SG1024',
+        port: 'ETH2'
+      }
+    },
+    { 
+      id: 'servo-read-1', 
+      name: '伺服电机', 
+      type: 'servo', 
+      station: 'read',
+      status: 'online',
+      position: { x: 61.96, y: 61.35 },
+      details: {
+        ip: '192.168.1.105',
+        speed: '1500 rpm',
+        torque: '2.5 N·m'
+      }
+    }
+  ],
+  label: [
+    // 贴标区：三个摄像头、两个补光灯、一个指示灯
+    { 
+      id: 'camera-label-1', 
+      name: '贴标摄像头1', 
+      type: 'camera', 
+      station: 'label',
+      status: 'online',
+      position: { x: 32.98, y: -51.89 },
+      details: {
+        ip: '192.168.1.201',
+        exposure: '6ms',
+        resolution: '1920x1080'
+      }
+    },
+    { 
+      id: 'camera-label-2', 
+      name: '贴标摄像头2', 
+      type: 'camera', 
+      station: 'label',
+      status: 'online',
+      position: { x: 45.42, y: -29.66 },
+      details: {
+        ip: '192.168.1.202',
+        exposure: '6ms',
+        resolution: '1920x1080'
+      }
+    },
+    { 
+      id: 'camera-label-3', 
+      name: '贴标摄像头3', 
+      type: 'camera', 
+      station: 'label',
+      status: 'online',
+      position: { x: 54.30, y: -51.53 },
+      details: {
+        ip: '192.168.1.203',
+        exposure: '6ms',
+        resolution: '1920x1080'
+      }
+    },
+    { 
+      id: 'light-label-1', 
+      name: '补光灯1', 
+      type: 'light', 
+      station: 'label',
+      status: 'online',
+      position: { x: 24.40, y: -12.96 },
+      details: {
+        brightness: '85%',
+        color: '6500K',
+        power: '24W'
+      }
+    },
+    { 
+      id: 'light-label-2', 
+      name: '补光灯2', 
+      type: 'light', 
+      station: 'label',
+      status: 'online',
+      position: { x: 66.95, y: -9.42 },
+      details: {
+        brightness: '85%',
+        color: '6500K',
+        power: '24W'
+      }
+    },
+    { 
+      id: 'indicator-label-1', 
+      name: '指示灯', 
+      type: 'indicator', 
+      station: 'label',
+      status: 'online',
+      position: { x: 3.44, y: -5.20 },
+      details: {
+        status: '运行中',
+        color: '绿色'
+      }
+    }
+  ],
+  pick: [
+    // 取标签区：一个机械臂、一个标签盘、一个摄像头、一个工控机
+    { 
+      id: 'robot-pick-1', 
+      name: '机械臂', 
+      type: 'robot', 
+      station: 'pick',
+      status: 'online',
+      position: { x: 10.07, y: 4.84 },
+      details: {
+        model: 'UR5',
+        payload: '5kg',
+        reach: '850mm'
+      }
+    },
+    { 
+      id: 'tray-pick-1', 
+      name: '标签盘', 
+      type: 'tray', 
+      station: 'pick',
+      status: 'online',
+      position: { x: 81.03, y: 41.68 },
+      details: {
+        capacity: '500',
+        remaining: '342',
+        type: '标签卷'
+      }
+    },
+    { 
+      id: 'camera-pick-1', 
+      name: '取标签摄像头', 
+      type: 'camera', 
+      station: 'pick',
+      status: 'online',
+      position: { x: 87.74, y: -9.37 },
+      details: {
+        ip: '192.168.1.301',
+        exposure: '8ms',
+        resolution: '1920x1080'
+      }
+    },
+    { 
+      id: 'monitor-pick-1', 
+      name: '工控机', 
+      type: 'monitor', 
+      station: 'pick',
+      status: 'online',
+      position: { x: -3.43, y: -108.18 },
+      details: {
+        ip: '192.168.1.302',
+        model: 'IPC-610',
+        cpu: 'Intel i5'
+      }
+    }
+  ],
+  qc: [
+    // 质检区：一个摄像头、一个指示灯、一个PLC、一个交换机、一个伺服电机
+    { 
+      id: 'camera-qc-1', 
+      name: '质检摄像头', 
+      type: 'camera', 
+      station: 'qc',
+      status: 'online',
+      position: { x: 15.91, y: -36.73 },
+      details: {
+        ip: '192.168.1.401',
+        exposure: '10ms',
+        resolution: '2048x1536'
+      }
+    },
+    { 
+      id: 'indicator-qc-1', 
+      name: '指示灯', 
+      type: 'indicator', 
+      station: 'qc',
+      status: 'online',
+      position: { x: 18.96, y: -9.71 },
+      details: {
+        status: '运行中',
+        color: '绿色'
+      }
+    },
+    { 
+      id: 'plc-qc-1', 
+      name: 'PLC控制器', 
+      type: 'plc', 
+      station: 'qc',
+      status: 'online',
+      position: { x: 11.60, y: 45.45 },
+      details: {
+        ip: '192.168.1.402',
+        program: 'QC_V1.8',
+        port: 'ETH1'
+      }
+    },
+    { 
+      id: 'switch-qc-1', 
+      name: '交换机', 
+      type: 'switch', 
+      station: 'qc',
+      status: 'online',
+      position: { x: -23.81, y: -44.01 },
+      details: {
+        ip: '192.168.1.403',
+        model: 'TL-SG1024',
+        port: 'ETH3'
+      }
+    },
+    { 
+      id: 'servo-qc-1', 
+      name: '伺服电机', 
+      type: 'servo', 
+      station: 'qc',
+      status: 'online',
+      position: { x: 29.14, y: 78.54 },
+      details: {
+        ip: '192.168.1.404',
+        speed: '1500 rpm',
+        torque: '2.5 N·m'
+      }
+    }
+  ],
+  network: [
+    // 网络区域（贴标区上方）：交换机、MES服务器、MBI服务器
+    { 
+      id: 'switch-network-1', 
+      name: '核心交换机', 
+      type: 'switch', 
+      station: 'network',
+      status: 'online',
+      position: { x: 50.00, y: 20.00 },
+      details: {
+        ip: '192.168.1.1',
+        model: 'TL-SG5428',
+        port: '24口千兆'
+      }
+    },
+    { 
+      id: 'server-mes-1', 
+      name: 'MES服务器', 
+      type: 'server', 
+      station: 'network',
+      status: 'online',
+      position: { x: 49.26, y: -63.39 },
+      details: {
+        ip: '192.168.1.10',
+        model: 'Dell PowerEdge',
+        cpu: 'Intel Xeon'
+      }
+    },
+    { 
+      id: 'server-mbi-1', 
+      name: 'MBI服务器', 
+      type: 'server', 
+      station: 'network',
+      status: 'online',
+      position: { x: 90.69, y: 21.68 },
+      details: {
+        ip: '192.168.1.11',
+        model: 'Dell PowerEdge',
+        cpu: 'Intel Xeon'
+      }
+    }
+  ]
+}
+
+// 网络拓扑连接关系
+const networkTopology = {
+  // 读码区连接
+  read: {
+    // 伺服电机和指示灯连接到PLC
+    'servo-read-1': 'plc-read-1',
+    'indicator-read-1': 'plc-read-1',
+    // PLC和摄像头连接到交换机
+    'plc-read-1': 'switch-read-1',
+    'camera-read-1': 'switch-read-1',
+    'camera-read-2': 'switch-read-1',
+    // 读码区交换机连接到核心交换机
+    'switch-read-1': 'switch-network-1'
+  },
+  // 贴标区连接
+  label: {
+    // 三个摄像头连接到读码区的交换机
+    'camera-label-1': 'switch-read-1',
+    'camera-label-2': 'switch-read-1',
+    'camera-label-3': 'switch-read-1',
+    // 两个补光灯和指示灯连接到读码区的PLC
+    'light-label-1': 'plc-read-1',
+    'light-label-2': 'plc-read-1',
+    'indicator-label-1': 'plc-read-1'
+  },
+  // 取标签区连接
+  pick: {
+    // 机械臂、取标签摄像头、工控机连接到质检区的交换机
+    'robot-pick-1': 'switch-qc-1',
+    'camera-pick-1': 'switch-qc-1',
+    'monitor-pick-1': 'switch-qc-1',
+    // 标签盘连接到质检区的PLC
+    'tray-pick-1': 'plc-qc-1'
+  },
+  // 质检区连接
+  qc: {
+    // 摄像头和PLC连接到交换机
+    'camera-qc-1': 'switch-qc-1',
+    'plc-qc-1': 'switch-qc-1',
+    // 指示灯和伺服电机连接到PLC
+    'indicator-qc-1': 'plc-qc-1',
+    'servo-qc-1': 'plc-qc-1',
+    // 质检区交换机连接到核心交换机
+    'switch-qc-1': 'switch-network-1'
+  },
+  // 网络区域连接
+  network: {
+    // 两台服务器连接到核心交换机
+    'server-mes-1': 'switch-network-1',
+    'server-mbi-1': 'switch-network-1'
+  }
+}
+
+// 获取设备在SVG中的坐标（用于绘制连线）
+const getDeviceSvgPosition = (device, station) => {
+  if (!device) return { x: 0, y: 0 }
+  
+  // 调整工位位置，整体向下移动，减少底部空白
+  const stationPositions = {
+    read: { baseX: 100, baseY: 200, width: 200, height: 100 },
+    label: { baseX: 400, baseY: 200, width: 200, height: 100 },
+    pick: { baseX: 500, baseY: 330, width: 120, height: 80 },
+    qc: { baseX: 700, baseY: 200, width: 200, height: 100 },
+    network: { baseX: 400, baseY: 100, width: 200, height: 60 }
+  }
+  
+  const pos = stationPositions[station] || { baseX: 0, baseY: 0, width: 200, height: 100 }
+  
+  // 设备位置是相对于工位的百分比（允许超出0-100范围）
+  // 计算 SVG 绝对坐标
+  const svgX = pos.baseX + (device.position.x / 100) * pos.width
+  const svgY = pos.baseY + (device.position.y / 100) * pos.height
+  
+  return {
+    x: svgX,
+    y: svgY
+  }
+}
+
+// 获取设备图标的定位样式（用于HTML覆盖层）
+const getDeviceIconStyle = (device, station) => {
+  const svgPos = getDeviceSvgPosition(device, station)
+  // SVG viewBox 是 "0 0 1000 500"
+  return {
+    left: `${(svgPos.x / 1000) * 100}%`,
+    top: `${(svgPos.y / 500) * 100}%`
+  }
+}
+
+// 选中的设备
+const selectedDevice = ref(null)
+const hoveredDevice = ref(null)
+
+// 拖拽相关状态
+const draggedDevice = ref(null)
+const dragOffset = ref({ x: 0, y: 0 })
+
+// 开始拖拽设备
+const startDrag = (device, event) => {
+  draggedDevice.value = device
+  const rect = event.currentTarget.getBoundingClientRect()
+  const svgContainer = event.currentTarget.closest('.svg-container')
+  const svgRect = svgContainer.getBoundingClientRect()
+  const svg = svgContainer.querySelector('svg')
+  const svgViewBox = svg.viewBox.baseVal
+  
+  // 计算设备在SVG中的当前位置
+  const stationPositions = {
+    read: { baseX: 100, baseY: 200, width: 200, height: 100 },
+    label: { baseX: 400, baseY: 200, width: 200, height: 100 },
+    pick: { baseX: 500, baseY: 330, width: 120, height: 80 },
+    qc: { baseX: 700, baseY: 200, width: 200, height: 100 },
+    network: { baseX: 400, baseY: 100, width: 200, height: 60 }
+  }
+  const pos = stationPositions[device.station] || { baseX: 0, baseY: 0, width: 200, height: 100 }
+  const deviceSvgX = pos.baseX + (device.position.x / 100) * pos.width
+  const deviceSvgY = pos.baseY + (device.position.y / 100) * pos.height
+  
+  // 计算鼠标相对于SVG的坐标
+  const mouseX = ((event.clientX - svgRect.left) / svgRect.width) * svgViewBox.width
+  const mouseY = ((event.clientY - svgRect.top) / svgRect.height) * svgViewBox.height
+  
+  dragOffset.value = {
+    x: mouseX - deviceSvgX,
+    y: mouseY - deviceSvgY
+  }
+  
+  event.preventDefault()
+}
+
+// 拖拽设备
+const dragDevice = (event) => {
+  if (!draggedDevice.value) return
+  
+  // 在全局事件中，直接查找 SVG 容器
+  const svgContainer = document.querySelector('.svg-container')
+  if (!svgContainer) return
+  
+  const svgRect = svgContainer.getBoundingClientRect()
+  const svg = svgContainer.querySelector('svg')
+  const svgViewBox = svg.viewBox.baseVal
+  
+  // 计算鼠标在SVG中的坐标
+  const mouseX = ((event.clientX - svgRect.left) / svgRect.width) * svgViewBox.width
+  const mouseY = ((event.clientY - svgRect.top) / svgRect.height) * svgViewBox.height
+  
+  // 计算设备在工位内的相对位置（百分比）
+  const stationPositions = {
+    read: { baseX: 100, baseY: 200, width: 200, height: 100 },
+    label: { baseX: 400, baseY: 200, width: 200, height: 100 },
+    pick: { baseX: 500, baseY: 330, width: 120, height: 80 },
+    qc: { baseX: 700, baseY: 200, width: 200, height: 100 },
+    network: { baseX: 400, baseY: 100, width: 200, height: 60 }
+  }
+  const pos = stationPositions[draggedDevice.value.station] || { baseX: 0, baseY: 0, width: 200, height: 100 }
+  
+  const deviceSvgX = mouseX - dragOffset.value.x
+  const deviceSvgY = mouseY - dragOffset.value.y
+  
+  // 转换为百分比位置（移除范围限制，允许在整个SVG区域内移动）
+  const newX = ((deviceSvgX - pos.baseX) / pos.width) * 100
+  const newY = ((deviceSvgY - pos.baseY) / pos.height) * 100
+  
+  // 移除范围限制，允许设备在整个SVG区域内自由移动
+  draggedDevice.value.position.x = newX
+  draggedDevice.value.position.y = newY
+}
+
+// 结束拖拽
+const endDrag = () => {
+  draggedDevice.value = null
+  dragOffset.value = { x: 0, y: 0 }
+}
+
+// 打印所有设备位置
+const printDevicePositions = () => {
+  console.log('========== 设备位置信息 ==========')
+  Object.keys(devices).forEach(station => {
+    const stationName = station === 'read' ? '读码区' : station === 'label' ? '贴标区' : station === 'pick' ? '取标签区' : station === 'qc' ? '质检区' : '网络区域'
+    console.log(`\n【${stationName}】`)
+    devices[station].forEach(device => {
+      const positionStr = `${device.name} (${device.id}): x=${device.position.x.toFixed(2)}, y=${device.position.y.toFixed(2)}, station=${device.station}, type=${device.type}`
+      console.log(positionStr)
+    })
+  })
+  console.log('\n========== 设备位置信息结束 ==========')
+  
+  // 同时输出为纯文本格式，方便复制
+  let textOutput = '========== 设备位置信息 ==========\n'
+  Object.keys(devices).forEach(station => {
+    const stationName = station === 'read' ? '读码区' : station === 'label' ? '贴标区' : station === 'pick' ? '取标签区' : station === 'qc' ? '质检区' : '网络区域'
+    textOutput += `\n【${stationName}】\n`
+    devices[station].forEach(device => {
+      textOutput += `${device.name} (${device.id}): x=${device.position.x.toFixed(2)}, y=${device.position.y.toFixed(2)}, station=${device.station}, type=${device.type}\n`
+    })
+  })
+  textOutput += '\n========== 设备位置信息结束 =========='
+  console.log('\n--- 纯文本格式（方便复制） ---')
+  console.log(textOutput)
+}
+
+// 工件位置（用于动画）
+const workpiecePosition = ref({ x: 0, y: 0 })
+
+// 标签位置（用于动画）
+const labelPosition = ref({ x: 560, y: 320 }) // 取标签区中心位置
+const labelVisible = ref(false)
+
+// ========== 动画参数配置 ==========
+// 前进速度（像素/秒，基于SVG viewBox坐标）
+const transitSpeed = 100 // 可调整：200像素/秒
+
+// 贴标时长（秒）
+const stickLabelTime = 2.0 // 可调整：2秒
+
+// ========== 路径配置 ==========
+const surfaceY = 180 // 工位上表面y坐标（已向下移动50像素）
+const startX = 100 // 起点x坐标
+const labelCenterX = 500 // 贴标区中心x坐标
+const endX = 900 // 终点x坐标
+
+// 计算路径距离
+const distanceToLabel = labelCenterX - startX // 400像素
+const distanceFromLabel = endX - labelCenterX // 400像素
+const totalDistance = distanceToLabel + distanceFromLabel // 800像素
+
+// 计算移动时间（秒）
+const timeToLabel = distanceToLabel / transitSpeed // 移动到贴标区的时间
+const timeFromLabel = distanceFromLabel / transitSpeed // 从贴标区到终点的时间
+const totalAnimationTime = timeToLabel + stickLabelTime + timeFromLabel // 总动画时间
+
+// 工件流动动画
+let animationFrame = null
+let animationStartTime = null
+
+const startWorkpieceAnimation = () => {
+  animationStartTime = performance.now() / 1000 // 记录开始时间（秒）
+  
+  const animate = () => {
+    const currentTime = performance.now() / 1000
+    const elapsedTime = (currentTime - animationStartTime) % totalAnimationTime // 循环时间
+    
+    let currentX = startX
+    let currentStatus = 'read'
+    
+    if (elapsedTime < timeToLabel) {
+      // 阶段1：从起点移动到贴标区中心（匀速）
+      const progress = elapsedTime / timeToLabel
+      currentX = startX + progress * distanceToLabel
+      currentStatus = 'read'
+      labelVisible.value = false
+    } else if (elapsedTime < timeToLabel + stickLabelTime) {
+      // 阶段2：在贴标区中心暂停（贴标中）
+      currentX = labelCenterX
+      currentStatus = 'label'
+      
+      // 标签动画：从取标签区移动到贴标区
+      const labelProgress = (elapsedTime - timeToLabel) / stickLabelTime
+      if (labelProgress < 0.3) {
+        // 标签从取标签区移动到贴标区（前30%时间）
+        const moveProgress = labelProgress / 0.3
+        labelPosition.value = {
+          x: 560 - moveProgress * 60, // 从取标签区(560)移动到贴标区中间(500)
+          y: 320 - moveProgress * 190  // 从取标签区(320)移动到贴标区(130)
+        }
+        labelVisible.value = true
+      } else if (labelProgress < 0.7) {
+        // 标签在贴标区，正在贴标（中间40%时间）
+        labelPosition.value = { x: labelCenterX, y: surfaceY }
+        labelVisible.value = true
+      } else {
+        // 标签完成，隐藏（后30%时间）
+        labelVisible.value = false
+      }
+    } else {
+      // 阶段3：从贴标区中心移动到终点（匀速）
+      const progress = (elapsedTime - timeToLabel - stickLabelTime) / timeFromLabel
+      currentX = labelCenterX + progress * distanceFromLabel
+      currentStatus = 'qc'
+      labelVisible.value = false
+    }
+    
+    // 更新工件位置
+    workpiecePosition.value = { x: currentX, y: surfaceY }
+    
+    // 更新流程步骤状态
+    processSteps.value.forEach(s => s.active = s.id === currentStatus)
+    
+    animationFrame = requestAnimationFrame(animate)
+  }
+  animate()
+}
+
+onMounted(() => {
+  startWorkpieceAnimation()
+  // 添加全局鼠标事件监听
+  document.addEventListener('mousemove', dragDevice)
+  document.addEventListener('mouseup', endDrag)
+})
+
+onUnmounted(() => {
+  if (animationFrame) {
+    cancelAnimationFrame(animationFrame)
+  }
+  // 移除全局鼠标事件监听
+  document.removeEventListener('mousemove', dragDevice)
+  document.removeEventListener('mouseup', endDrag)
+})
+
+// 设备图标映射（SVG文件路径）
+const deviceIcons = {
+  plc: '/plc.svg',
+  switch: '/switch.svg',
+  servo: '/servomotor.svg',
+  camera: '/camera.svg',
+  light: '💡', // 补光灯，保持emoji
+  indicator: '/indicator.svg', // 指示灯
+  robot: '/robot.svg',
+  tray: '📦', // 标签盘，保持emoji
+  monitor: '/monitor.svg', // 工控机
+  server: '🖥️' // 服务器（MES/MBI），保持emoji
+}
+
+// 判断是否为SVG路径
+const isSvgPath = (icon) => {
+  return typeof icon === 'string' && icon.endsWith('.svg')
+}
+
+// 处理设备点击
+const handleDeviceClick = (device) => {
+  selectedDevice.value = device
+  currentStation.value = device.station
+}
+
+// 处理工位点击
+const handleStationClick = (stationId) => {
+  currentStation.value = stationId
+  selectedDevice.value = null
+}
+
+// 关闭设备详情
+const closeDeviceInfo = () => {
+  selectedDevice.value = null
+}
+
+// 获取当前工位的设备列表
+const currentStationDevices = computed(() => {
+  return devices[currentStation.value] || []
+})
+
+// 工位配置
+const stations = [
+  { id: 'read', name: '读码区', x: 100, y: 150, width: 200, height: 100, color: '#87CEEB' },
+  { id: 'label', name: '贴标区', x: 400, y: 150, width: 200, height: 100, color: '#90EE90' },
+  { id: 'pick', name: '取标签区', x: 500, y: 280, width: 120, height: 80, color: '#FFA500' },
+  { id: 'qc', name: '质检区', x: 700, y: 150, width: 200, height: 100, color: '#DDA0DD' }
+]
+
+</script>
+
+<template>
+  <div class="flexible-labeling-machine">
+    <!-- 顶部标题栏 -->
+    <div class="header-bar">
+      <div class="header-left">
+        <h2 class="title">柔性贴标工位生产示意图</h2>
+      </div>
+      <div class="header-right">
+        <button class="print-btn" @click="printDevicePositions" title="打印设备位置到控制台">
+          📋 打印设备位置
+        </button>
+        <span class="divider">|</span>
+        <span class="production-line">{{ productionLine }}</span>
+        <span class="divider">|</span>
+        <span class="current-time">{{ formattedTime }}</span>
+        <span class="divider">|</span>
+        <span class="status-badge" :style="{ color: statusColor }">
+          <span class="status-dot" :style="{ backgroundColor: statusColor }"></span>
+          {{ runStatus }}
+        </span>
+      </div>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="main-content">
+      <!-- 左侧面板：流程 & 状态 -->
+      <div class="left-panel">
+        <div class="panel-section">
+          <h3 class="section-title">流程步骤</h3>
+          <div class="process-steps">
+            <div
+              v-for="(step, index) in processSteps"
+              :key="step.id"
+              class="step-item"
+              :class="{ active: step.active, completed: index < processSteps.findIndex(s => s.active) }"
+            >
+              <div class="step-indicator">
+                <span class="step-number">{{ index + 1 }}</span>
+              </div>
+              <span class="step-name">{{ step.name }}</span>
+              <div v-if="index < processSteps.length - 1" class="step-connector"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3 class="section-title">生产统计</h3>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <div class="stat-label">当前节拍</div>
+              <div class="stat-value">{{ stats.cycleTime }}s</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">通过数量</div>
+              <div class="stat-value success">{{ stats.passed }}</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">不良数量</div>
+              <div class="stat-value error">{{ stats.failed }}</div>
+            </div>
+          </div>
+          
+          <div class="trend-chart">
+            <div class="chart-title">节拍趋势</div>
+            <div class="chart-container">
+              <svg viewBox="0 0 200 60" class="trend-svg">
+                <polyline
+                  :points="stats.trend.map((v, i) => `${i * 30},${60 - (v - 100) * 0.3}`).join(' ')"
+                  fill="none"
+                  stroke="#409eff"
+                  stroke-width="2"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 中间区域：SVG 3D场景 -->
+      <div class="center-panel">
+        <div class="svg-container">
+          <svg viewBox="0 0 1000 500" class="scene-svg">
+            <!-- 定义渐变和阴影 -->
+            <defs>
+              <linearGradient id="readGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#87CEEB;stop-opacity:0.8" />
+                <stop offset="100%" style="stop-color:#4682B4;stop-opacity:0.6" />
+              </linearGradient>
+              <linearGradient id="labelGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#90EE90;stop-opacity:0.8" />
+                <stop offset="100%" style="stop-color:#32CD32;stop-opacity:0.6" />
+              </linearGradient>
+              <linearGradient id="pickGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#FFA500;stop-opacity:0.8" />
+                <stop offset="100%" style="stop-color:#FF8C00;stop-opacity:0.6" />
+              </linearGradient>
+              <linearGradient id="qcGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#DDA0DD;stop-opacity:0.8" />
+                <stop offset="100%" style="stop-color:#BA55D3;stop-opacity:0.6" />
+              </linearGradient>
+              <filter id="shadow">
+                <feDropShadow dx="3" dy="3" stdDeviation="3" flood-opacity="0.3"/>
+              </filter>
+            </defs>
+
+            <!-- 读码区（3D长方体效果） -->
+            <g 
+              class="station-group read-station"
+              @click="handleStationClick('read')"
+            >
+              <!-- 顶面 -->
+              <polygon
+                points="100,200 300,200 320,180 120,180"
+                fill="url(#readGradient)"
+                filter="url(#shadow)"
+              />
+              <!-- 前面 -->
+              <polygon
+                points="100,200 300,200 300,300 100,300"
+                fill="url(#readGradient)"
+                filter="url(#shadow)"
+              />
+              <!-- 右侧面 -->
+              <polygon
+                points="300,200 320,180 320,280 300,300"
+                fill="url(#readGradient)"
+                opacity="0.7"
+              />
+              <!-- 工位标签 -->
+              <text x="200" y="195" text-anchor="middle" fill="#fff" font-size="16" font-weight="bold">读码区</text>
+              <!-- 入口箭头 -->
+              <path
+                d="M 80 250 L 100 250 L 95 245 M 100 250 L 95 255"
+                stroke="#409eff"
+                stroke-width="2"
+                fill="none"
+              />
+            </g>
+
+            <!-- 贴标区 -->
+            <g 
+              class="station-group label-station"
+              @click="handleStationClick('label')"
+            >
+              <!-- 顶面 -->
+              <polygon
+                points="400,200 600,200 620,180 420,180"
+                fill="url(#labelGradient)"
+                filter="url(#shadow)"
+              />
+              <!-- 前面 -->
+              <polygon
+                points="400,200 600,200 600,300 400,300"
+                fill="url(#labelGradient)"
+                filter="url(#shadow)"
+              />
+              <!-- 右侧面 -->
+              <polygon
+                points="600,200 620,180 620,280 600,300"
+                fill="url(#labelGradient)"
+                opacity="0.7"
+              />
+              <!-- 工位标签 -->
+              <text x="500" y="195" text-anchor="middle" fill="#fff" font-size="16" font-weight="bold">贴标区</text>
+            </g>
+
+            <!-- 取标签区（在贴标区后面） -->
+            <g 
+              class="station-group pick-station"
+              @click="handleStationClick('pick')"
+            >
+              <!-- 顶面 -->
+              <polygon
+                points="500,330 620,330 630,320 510,320"
+                fill="url(#pickGradient)"
+                filter="url(#shadow)"
+              />
+              <!-- 前面 -->
+              <polygon
+                points="500,330 620,330 620,410 500,410"
+                fill="url(#pickGradient)"
+                filter="url(#shadow)"
+              />
+              <!-- 右侧面 -->
+              <polygon
+                points="620,330 630,320 630,400 620,410"
+                fill="url(#pickGradient)"
+                opacity="0.7"
+              />
+              <!-- 工位标签 -->
+              <text x="560" y="325" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">取标签区</text>
+              <!-- 标签卷（圆柱体简化） -->
+              <ellipse cx="560" cy="320" rx="20" ry="8" fill="#8B4513" opacity="0.8"/>
+              <rect x="540" y="320" width="40" height="15" fill="#A0522D" opacity="0.6"/>
+              <!-- 连接线（从取标签区到贴标区） -->
+              <path
+                d="M 560 330 Q 560 270 500 250"
+                stroke="#FFA500"
+                stroke-width="2"
+                stroke-dasharray="5,5"
+                fill="none"
+                opacity="0.6"
+              />
+            </g>
+
+            <!-- 质检区 -->
+            <g 
+              class="station-group qc-station"
+              @click="handleStationClick('qc')"
+            >
+              <!-- 顶面 -->
+              <polygon
+                points="700,200 900,200 920,180 720,180"
+                fill="url(#qcGradient)"
+                filter="url(#shadow)"
+              />
+              <!-- 前面 -->
+              <polygon
+                points="700,200 900,200 900,300 700,300"
+                fill="url(#qcGradient)"
+                filter="url(#shadow)"
+              />
+              <!-- 右侧面 -->
+              <polygon
+                points="900,200 920,180 920,280 900,300"
+                fill="url(#qcGradient)"
+                opacity="0.7"
+              />
+              <!-- 工位标签 -->
+              <text x="800" y="195" text-anchor="middle" fill="#fff" font-size="16" font-weight="bold">质检区</text>
+            </g>
+
+            <!-- 工件流动动画 -->
+            <g 
+              class="workpiece-group"
+              :transform="`translate(${workpiecePosition.x}, ${workpiecePosition.y})`"
+            >
+              <!-- 笔记本电脑图片 -->
+              <image
+                href="/laptop.png"
+                x="-25"
+                y="-20"
+                width="50"
+                height="35"
+                class="laptop-icon"
+                preserveAspectRatio="xMidYMid meet"
+                filter="url(#shadow)"
+              />
+            </g>
+
+            <!-- 标签流动动画 -->
+            <g 
+              v-if="labelVisible"
+              class="label-group"
+              :transform="`translate(${labelPosition.x}, ${labelPosition.y})`"
+            >
+              <!-- 标签图片 -->
+              <image
+                href="/label.png"
+                x="-12"
+                y="-12"
+                width="24"
+                height="24"
+                class="label-icon"
+                preserveAspectRatio="xMidYMid meet"
+                filter="url(#shadow)"
+              />
+            </g>
+
+            <!-- 传送带连接线（在工位上表面） -->
+            <line x1="300" y1="180" x2="400" y2="180" stroke="#666" stroke-width="3" stroke-dasharray="5,5" opacity="0.5"/>
+            <line x1="600" y1="180" x2="700" y2="180" stroke="#666" stroke-width="3" stroke-dasharray="5,5" opacity="0.5"/>
+
+            <!-- 网络拓扑连线（动态计算） -->
+            <g class="network-topology" stroke="#FFD700" stroke-width="2.5" opacity="0.8" fill="none">
+              <!-- 读码区内部连接 -->
+              <!-- 伺服电机和指示灯连接到PLC -->
+              <line 
+                v-for="deviceId in ['servo-read-1', 'indicator-read-1']"
+                :key="`${deviceId}-plc`"
+                :x1="getDeviceSvgPosition(devices.read.find(d => d.id === deviceId), 'read').x"
+                :y1="getDeviceSvgPosition(devices.read.find(d => d.id === deviceId), 'read').y"
+                :x2="getDeviceSvgPosition(devices.read.find(d => d.id === 'plc-read-1'), 'read').x"
+                :y2="getDeviceSvgPosition(devices.read.find(d => d.id === 'plc-read-1'), 'read').y"
+                stroke="#FFD700"
+              />
+              <!-- PLC和摄像头连接到交换机 -->
+              <line 
+                :x1="getDeviceSvgPosition(devices.read.find(d => d.id === 'plc-read-1'), 'read').x"
+                :y1="getDeviceSvgPosition(devices.read.find(d => d.id === 'plc-read-1'), 'read').y"
+                :x2="getDeviceSvgPosition(devices.read.find(d => d.id === 'switch-read-1'), 'read').x"
+                :y2="getDeviceSvgPosition(devices.read.find(d => d.id === 'switch-read-1'), 'read').y"
+                stroke="#FFD700"
+              />
+              <line 
+                v-for="deviceId in ['camera-read-1', 'camera-read-2']"
+                :key="`${deviceId}-switch`"
+                :x1="getDeviceSvgPosition(devices.read.find(d => d.id === deviceId), 'read').x"
+                :y1="getDeviceSvgPosition(devices.read.find(d => d.id === deviceId), 'read').y"
+                :x2="getDeviceSvgPosition(devices.read.find(d => d.id === 'switch-read-1'), 'read').x"
+                :y2="getDeviceSvgPosition(devices.read.find(d => d.id === 'switch-read-1'), 'read').y"
+                stroke="#FFD700"
+              />
+              <!-- 读码区交换机连接到核心交换机 -->
+              <line 
+                :x1="getDeviceSvgPosition(devices.read.find(d => d.id === 'switch-read-1'), 'read').x"
+                :y1="getDeviceSvgPosition(devices.read.find(d => d.id === 'switch-read-1'), 'read').y"
+                :x2="getDeviceSvgPosition(devices.network.find(d => d.id === 'switch-network-1'), 'network').x"
+                :y2="getDeviceSvgPosition(devices.network.find(d => d.id === 'switch-network-1'), 'network').y"
+                stroke="#FFD700"
+                stroke-dasharray="3,3"
+              />
+              
+              <!-- 贴标区设备连接到读码区设备 -->
+              <!-- 三个摄像头连接到读码区的交换机 -->
+              <line 
+                v-for="deviceId in ['camera-label-1', 'camera-label-2', 'camera-label-3']"
+                :key="`${deviceId}-switch-read`"
+                :x1="getDeviceSvgPosition(devices.label.find(d => d.id === deviceId), 'label').x"
+                :y1="getDeviceSvgPosition(devices.label.find(d => d.id === deviceId), 'label').y"
+                :x2="getDeviceSvgPosition(devices.read.find(d => d.id === 'switch-read-1'), 'read').x"
+                :y2="getDeviceSvgPosition(devices.read.find(d => d.id === 'switch-read-1'), 'read').y"
+                stroke="#FFD700"
+              />
+              <!-- 两个补光灯和指示灯连接到读码区的PLC -->
+              <line 
+                v-for="deviceId in ['light-label-1', 'light-label-2', 'indicator-label-1']"
+                :key="`${deviceId}-plc-read`"
+                :x1="getDeviceSvgPosition(devices.label.find(d => d.id === deviceId), 'label').x"
+                :y1="getDeviceSvgPosition(devices.label.find(d => d.id === deviceId), 'label').y"
+                :x2="getDeviceSvgPosition(devices.read.find(d => d.id === 'plc-read-1'), 'read').x"
+                :y2="getDeviceSvgPosition(devices.read.find(d => d.id === 'plc-read-1'), 'read').y"
+                stroke="#FFD700"
+              />
+              
+              <!-- 取标签区设备连接到质检区设备 -->
+              <!-- 机械臂、取标签摄像头、工控机连接到质检区的交换机 -->
+              <line 
+                v-for="deviceId in ['robot-pick-1', 'camera-pick-1', 'monitor-pick-1']"
+                :key="`${deviceId}-switch-qc`"
+                :x1="getDeviceSvgPosition(devices.pick.find(d => d.id === deviceId), 'pick').x"
+                :y1="getDeviceSvgPosition(devices.pick.find(d => d.id === deviceId), 'pick').y"
+                :x2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'switch-qc-1'), 'qc').x"
+                :y2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'switch-qc-1'), 'qc').y"
+                stroke="#FFD700"
+              />
+              <!-- 标签盘连接到质检区的PLC -->
+              <line 
+                :x1="getDeviceSvgPosition(devices.pick.find(d => d.id === 'tray-pick-1'), 'pick').x"
+                :y1="getDeviceSvgPosition(devices.pick.find(d => d.id === 'tray-pick-1'), 'pick').y"
+                :x2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'plc-qc-1'), 'qc').x"
+                :y2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'plc-qc-1'), 'qc').y"
+                stroke="#FFD700"
+              />
+              
+              <!-- 质检区内部连接 -->
+              <!-- 摄像头和PLC连接到交换机 -->
+              <line 
+                :x1="getDeviceSvgPosition(devices.qc.find(d => d.id === 'camera-qc-1'), 'qc').x"
+                :y1="getDeviceSvgPosition(devices.qc.find(d => d.id === 'camera-qc-1'), 'qc').y"
+                :x2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'switch-qc-1'), 'qc').x"
+                :y2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'switch-qc-1'), 'qc').y"
+                stroke="#FFD700"
+              />
+              <line 
+                :x1="getDeviceSvgPosition(devices.qc.find(d => d.id === 'plc-qc-1'), 'qc').x"
+                :y1="getDeviceSvgPosition(devices.qc.find(d => d.id === 'plc-qc-1'), 'qc').y"
+                :x2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'switch-qc-1'), 'qc').x"
+                :y2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'switch-qc-1'), 'qc').y"
+                stroke="#FFD700"
+              />
+              <!-- 指示灯和伺服电机连接到PLC -->
+              <line 
+                v-for="deviceId in ['indicator-qc-1', 'servo-qc-1']"
+                :key="`${deviceId}-plc-qc`"
+                :x1="getDeviceSvgPosition(devices.qc.find(d => d.id === deviceId), 'qc').x"
+                :y1="getDeviceSvgPosition(devices.qc.find(d => d.id === deviceId), 'qc').y"
+                :x2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'plc-qc-1'), 'qc').x"
+                :y2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'plc-qc-1'), 'qc').y"
+                stroke="#FFD700"
+              />
+              <!-- 质检区交换机连接到核心交换机 -->
+              <line 
+                :x1="getDeviceSvgPosition(devices.qc.find(d => d.id === 'switch-qc-1'), 'qc').x"
+                :y1="getDeviceSvgPosition(devices.qc.find(d => d.id === 'switch-qc-1'), 'qc').y"
+                :x2="getDeviceSvgPosition(devices.network.find(d => d.id === 'switch-network-1'), 'network').x"
+                :y2="getDeviceSvgPosition(devices.network.find(d => d.id === 'switch-network-1'), 'network').y"
+                stroke="#FFD700"
+                stroke-dasharray="3,3"
+              />
+              
+              <!-- 网络区域连接 -->
+              <!-- 两台服务器连接到核心交换机 -->
+              <line 
+                v-for="deviceId in ['server-mes-1', 'server-mbi-1']"
+                :key="`${deviceId}-switch-network`"
+                :x1="getDeviceSvgPosition(devices.network.find(d => d.id === deviceId), 'network').x"
+                :y1="getDeviceSvgPosition(devices.network.find(d => d.id === deviceId), 'network').y"
+                :x2="getDeviceSvgPosition(devices.network.find(d => d.id === 'switch-network-1'), 'network').x"
+                :y2="getDeviceSvgPosition(devices.network.find(d => d.id === 'switch-network-1'), 'network').y"
+                stroke="#FFD700"
+              />
+            </g>
+          </svg>
+
+          <!-- 设备图标覆盖层（HTML元素，定位在SVG上方） -->
+          <div class="device-icons-overlay">
+            <!-- 读码区设备 -->
+            <div
+              v-for="device in devices.read"
+              :key="device.id"
+              class="device-icon"
+              :class="{ 
+                active: selectedDevice?.id === device.id,
+                hovered: hoveredDevice?.id === device.id,
+                dragging: draggedDevice?.id === device.id,
+                [device.type]: true
+              }"
+              :style="getDeviceIconStyle(device, 'read')"
+              @click.stop="handleDeviceClick(device)"
+              @mouseenter="hoveredDevice = device"
+              @mouseleave="hoveredDevice = null"
+              @mousedown.stop="startDrag(device, $event)"
+            >
+              <div class="device-icon-inner">
+                <img 
+                  v-if="isSvgPath(deviceIcons[device.type])"
+                  :src="deviceIcons[device.type]"
+                  :alt="device.name"
+                  class="device-svg-icon"
+                />
+                <span v-else class="device-emoji">{{ deviceIcons[device.type] }}</span>
+              </div>
+              <div class="device-tooltip" v-if="hoveredDevice?.id === device.id">
+                <div class="tooltip-name">{{ device.name }}</div>
+                <div class="tooltip-status" :class="device.status">
+                  {{ device.status === 'online' ? '在线' : '离线' }}
+            </div>
+          </div>
+        </div>
+
+            <!-- 贴标区设备 -->
+            <div
+              v-for="device in devices.label"
+              :key="device.id"
+              class="device-icon"
+              :class="{ 
+                active: selectedDevice?.id === device.id,
+                hovered: hoveredDevice?.id === device.id,
+                dragging: draggedDevice?.id === device.id,
+                [device.type]: true
+              }"
+              :style="getDeviceIconStyle(device, 'label')"
+              @click.stop="handleDeviceClick(device)"
+              @mouseenter="hoveredDevice = device"
+              @mouseleave="hoveredDevice = null"
+              @mousedown.stop="startDrag(device, $event)"
+            >
+              <div class="device-icon-inner">
+                <img 
+                  v-if="isSvgPath(deviceIcons[device.type])"
+                  :src="deviceIcons[device.type]"
+                  :alt="device.name"
+                  class="device-svg-icon"
+                />
+                <span v-else class="device-emoji">{{ deviceIcons[device.type] }}</span>
+            </div>
+              <div class="device-tooltip" v-if="hoveredDevice?.id === device.id">
+                <div class="tooltip-name">{{ device.name }}</div>
+                <div class="tooltip-status" :class="device.status">
+                  {{ device.status === 'online' ? '在线' : '离线' }}
+          </div>
+              </div>
+            </div>
+
+            <!-- 取标签区设备 -->
+            <div
+              v-for="device in devices.pick"
+                :key="device.id"
+                class="device-icon"
+              :class="{ 
+                active: selectedDevice?.id === device.id,
+                hovered: hoveredDevice?.id === device.id,
+                dragging: draggedDevice?.id === device.id,
+                [device.type]: true
+              }"
+                :style="getDeviceIconStyle(device, 'pick')"
+              @click.stop="handleDeviceClick(device)"
+              @mouseenter="hoveredDevice = device"
+              @mouseleave="hoveredDevice = null"
+              @mousedown.stop="startDrag(device, $event)"
+            >
+              <div class="device-icon-inner">
+                <img 
+                  v-if="isSvgPath(deviceIcons[device.type])"
+                  :src="deviceIcons[device.type]"
+                  :alt="device.name"
+                  class="device-svg-icon"
+                />
+                <span v-else class="device-emoji">{{ deviceIcons[device.type] }}</span>
+              </div>
+              <div class="device-tooltip" v-if="hoveredDevice?.id === device.id">
+                <div class="tooltip-name">{{ device.name }}</div>
+                <div class="tooltip-status" :class="device.status">
+                  {{ device.status === 'online' ? '在线' : '离线' }}
+            </div>
+          </div>
+        </div>
+
+            <!-- 质检区设备 -->
+            <div
+              v-for="device in devices.qc"
+              :key="device.id"
+              class="device-icon"
+              :class="{ 
+                active: selectedDevice?.id === device.id,
+                hovered: hoveredDevice?.id === device.id,
+                dragging: draggedDevice?.id === device.id,
+                [device.type]: true
+              }"
+              :style="getDeviceIconStyle(device, 'qc')"
+              @click.stop="handleDeviceClick(device)"
+              @mouseenter="hoveredDevice = device"
+              @mouseleave="hoveredDevice = null"
+              @mousedown.stop="startDrag(device, $event)"
+            >
+              <div class="device-icon-inner">
+                <img 
+                  v-if="isSvgPath(deviceIcons[device.type])"
+                  :src="deviceIcons[device.type]"
+                  :alt="device.name"
+                  class="device-svg-icon"
+                />
+                <span v-else class="device-emoji">{{ deviceIcons[device.type] }}</span>
+              </div>
+              <div class="device-tooltip" v-if="hoveredDevice?.id === device.id">
+                <div class="tooltip-name">{{ device.name }}</div>
+                <div class="tooltip-status" :class="device.status">
+                  {{ device.status === 'online' ? '在线' : '离线' }}
+                </div>
+              </div>
+            </div>
+
+            <!-- 网络区域设备（贴标区上方） -->
+            <div
+              v-for="device in devices.network"
+              :key="device.id"
+              class="device-icon"
+              :class="{ 
+                active: selectedDevice?.id === device.id,
+                hovered: hoveredDevice?.id === device.id,
+                dragging: draggedDevice?.id === device.id,
+                [device.type]: true
+              }"
+              :style="getDeviceIconStyle(device, 'network')"
+              @click.stop="handleDeviceClick(device)"
+              @mouseenter="hoveredDevice = device"
+              @mouseleave="hoveredDevice = null"
+              @mousedown.stop="startDrag(device, $event)"
+            >
+              <div class="device-icon-inner">
+                <img 
+                  v-if="isSvgPath(deviceIcons[device.type])"
+                  :src="deviceIcons[device.type]"
+                  :alt="device.name"
+                  class="device-svg-icon"
+                />
+                <span v-else class="device-emoji">{{ deviceIcons[device.type] }}</span>
+              </div>
+              <div class="device-tooltip" v-if="hoveredDevice?.id === device.id">
+                <div class="tooltip-name">{{ device.name }}</div>
+                <div class="tooltip-status" :class="device.status">
+                  {{ device.status === 'online' ? '在线' : '离线' }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+export default {
+  methods: {
+    getDetailLabel(key) {
+      const labels = {
+        ip: 'IP地址',
+        program: '程序版本',
+        port: '端口',
+        model: '型号',
+        speed: '转速',
+        torque: '扭矩',
+        exposure: '曝光时间',
+        resolution: '分辨率',
+        brightness: '亮度',
+        color: '色温',
+        power: '功率',
+        payload: '负载',
+        reach: '工作半径',
+        capacity: '容量',
+        remaining: '剩余',
+        type: '类型',
+        status: '状态',
+        cpu: 'CPU',
+        port: '端口'
+      }
+      return labels[key] || key
+    }
+  }
+}
+</script>
+
+<style scoped>
+.flexible-labeling-machine {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, rgba(11, 38, 66, 0.95), rgba(6, 25, 44, 0.98));
+  color: #e6f1ff;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* 顶部标题栏 */
+.header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, rgba(11, 38, 66, 0.9), rgba(6, 25, 44, 0.9));
+  border-bottom: 1px solid rgba(88, 178, 255, 0.2);
+}
+
+.header-left .title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.print-btn {
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #409EFF, #66b1ff);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.3s;
+  margin-right: 8px;
+}
+
+.print-btn:hover {
+  background: linear-gradient(135deg, #66b1ff, #409EFF);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(64, 158, 255, 0.3);
+}
+
+.print-btn:active {
+  transform: translateY(0);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.production-line {
+  color: #80d6ff;
+  font-weight: 500;
+}
+
+.divider {
+  color: rgba(128, 214, 255, 0.3);
+}
+
+.current-time {
+  color: rgba(214, 232, 255, 0.8);
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* 主内容区 */
+.main-content {
+  display: flex;
+  flex: 1;
+  gap: 16px;
+  padding: 16px;
+  overflow: hidden;
+}
+
+/* 左侧面板 */
+.left-panel {
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.panel-section {
+  background: rgba(4, 16, 27, 0.6);
+  border: 1px solid rgba(88, 178, 255, 0.12);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.section-title {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+/* 流程步骤 */
+.process-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+}
+
+.step-indicator {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(128, 214, 255, 0.2);
+  border: 2px solid rgba(128, 214, 255, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.step-item.active .step-indicator {
+  background: #409eff;
+  border-color: #409eff;
+  box-shadow: 0 0 12px rgba(64, 158, 255, 0.6);
+}
+
+.step-item.completed .step-indicator {
+  background: #67c23a;
+  border-color: #67c23a;
+}
+
+.step-number {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.step-name {
+  flex: 1;
+  font-size: 14px;
+  color: rgba(214, 232, 255, 0.8);
+}
+
+.step-item.active .step-name {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.step-connector {
+  position: absolute;
+  left: 16px;
+  top: 40px;
+  width: 2px;
+  height: 20px;
+  background: rgba(128, 214, 255, 0.2);
+}
+
+.step-item.completed .step-connector {
+  background: #67c23a;
+}
+
+/* 生产统计 */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat-item {
+  background: rgba(88, 178, 255, 0.1);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: rgba(214, 232, 255, 0.7);
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.stat-value.success {
+  color: #67c23a;
+}
+
+.stat-value.error {
+  color: #f56c6c;
+}
+
+.trend-chart {
+  margin-top: 16px;
+}
+
+.chart-title {
+  font-size: 12px;
+  color: rgba(214, 232, 255, 0.7);
+  margin-bottom: 8px;
+}
+
+.chart-container {
+  height: 60px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.trend-svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* 中间区域：SVG场景 */
+.center-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: rgba(4, 16, 27, 0.6);
+  border: 1px solid rgba(88, 178, 255, 0.12);
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.svg-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.scene-svg {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(4, 16, 27, 0.8), rgba(2, 8, 14, 0.9));
+}
+
+.station-group {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.station-group:hover polygon {
+  opacity: 0.9;
+}
+
+/* 工件图标样式 */
+.workpiece-group {
+  transition: transform 0.1s ease-out;
+}
+
+.laptop-icon {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+  animation: laptopFloat 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes laptopFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1px);
+  }
+}
+
+
+/* 标签图标样式 */
+.label-group {
+  transition: transform 0.1s ease-out;
+  z-index: 5;
+}
+
+.label-icon {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+  animation: labelFloat 1.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes labelFloat {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-2px) rotate(5deg);
+  }
+}
+
+/* 设备图标覆盖层 */
+.device-icons-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.device-icon {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  pointer-events: all;
+  z-index: 10;
+  transition: all 0.3s ease;
+}
+
+.device-icon:hover {
+  transform: translate(-50%, -50%) scale(1.2);
+  z-index: 20;
+}
+
+.device-icon.active {
+  transform: translate(-50%, -50%) scale(1.3);
+  z-index: 15;
+}
+
+.device-icon-inner {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.7));
+  border: 2px solid rgba(64, 158, 255, 0.6);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(64, 158, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.device-icon-inner .device-svg-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.device-icon.dragging {
+  cursor: grabbing !important;
+  z-index: 1000;
+  opacity: 0.9;
+  transform: scale(1.1);
+}
+
+.device-icon.dragging .device-icon-inner {
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+  border: 2px solid #FFD700;
+}
+
+.device-icon:hover .device-icon-inner,
+.device-icon.active .device-icon-inner {
+  background: linear-gradient(135deg, #409eff, #66b1ff);
+  border-color: #ffffff;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 30px rgba(64, 158, 255, 0.6);
+}
+
+.device-emoji {
+  font-size: 20px;
+}
+
+.device-svg-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  display: block;
+}
+
+.device-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+  background: rgba(0, 0, 0, 0.9);
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.device-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid rgba(0, 0, 0, 0.9);
+}
+
+.tooltip-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.tooltip-status {
+  font-size: 11px;
+  color: #67c23a;
+}
+
+.tooltip-status.offline {
+  color: #f56c6c;
+}
+
+/* 响应式设计 */
+@media (max-width: 1400px) {
+  .left-panel {
+    width: 240px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .main-content {
+    flex-direction: column;
+  }
+  
+  .left-panel {
+    width: 100%;
+    max-height: 200px;
+  }
+  
+  .center-panel {
+    min-height: 400px;
+  }
+}
+</style>

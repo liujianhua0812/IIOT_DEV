@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import MetricsGrid from '../components/home/MetricsGrid.vue'
-import DeploymentMap from '../components/home/DeploymentMap.vue'
+import FlexibleLabelingMachine from '../components/home/FlexibleLabelingMachine.vue'
 import { fetchHomeDeployments, fetchHomeOverview } from '../services/api'
 
 const router = useRouter()
@@ -59,9 +59,18 @@ onMounted(() => {
 
     <MetricsGrid :metrics="metrics" />
 
+    <section class="machine-section">
+      <div class="section-header">
+        <h2>柔性贴标生产线</h2>
+        <p>实时监控生产流程各环节设备状态</p>
+      </div>
+      <div class="machine-container">
+        <FlexibleLabelingMachine />
+      </div>
+    </section>
+
     <section v-if="loading" class="loading">数据加载中...</section>
     <section v-else-if="errorMessage" class="error">{{ errorMessage }}</section>
-    <DeploymentMap v-else :deployments="deployments" />
   </div>
 </template>
 
@@ -207,6 +216,40 @@ onMounted(() => {
 
 .error {
   color: #ff9a9e;
+}
+
+.machine-section {
+  padding: 32px;
+  background: linear-gradient(135deg, rgba(11, 38, 66, 0.85), rgba(6, 25, 44, 0.9));
+  border-radius: 24px;
+  border: 1px solid rgba(88, 178, 255, 0.08);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.32);
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.section-header h2 {
+  font-size: 28px;
+  margin-bottom: 8px;
+  letter-spacing: 1.2px;
+  color: #ffffff;
+}
+
+.section-header p {
+  font-size: 14px;
+  color: rgba(214, 232, 255, 0.7);
+  letter-spacing: 0.5px;
+}
+
+.machine-container {
+  background: rgba(4, 16, 27, 0.6);
+  border-radius: 16px;
+  border: 1px solid rgba(88, 178, 255, 0.12);
+  overflow: hidden;
+  min-height: 600px;
 }
 </style>
 
