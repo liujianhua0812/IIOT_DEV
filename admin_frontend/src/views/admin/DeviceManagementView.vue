@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import { fetchDevices } from '../../services/api'
+import { ElMessage } from 'element-plus'
+import { fetchDevices, fetchDevice, updateDevice, fetchDeviceTypes } from '../../services/api'
 
 const devices = ref([])
 const loading = ref(false)
@@ -10,6 +11,28 @@ const page = ref(1)
 const pageSize = ref(20)
 const searchKeyword = ref('')
 const statusFilter = ref('')
+
+// 对话框相关
+const dialogVisible = ref(false)
+const isEditMode = ref(false)
+const deviceDetail = ref(null)
+const deviceTypes = ref([])
+const formRef = ref(null)
+const formData = ref({
+  name: '',
+  code: '',
+  device_type_id: null,
+  application_id: null,
+  position_x: null,
+  position_y: null,
+  serial_number: '',
+  longitude: null,
+  latitude: null,
+  status: '',
+  health_status: '',
+  description: '',
+  parameters: {}
+})
 
 const statusClassMap = {
   '在线': 'online',
@@ -81,8 +104,146 @@ const getHealthStatusText = (health) => {
   return health || '-'
 }
 
+const loadDeviceTypes = async () => {
+  try {
+    const response = await fetchDeviceTypes()
+    deviceTypes.value = response.data.device_types || []
+  } catch (err) {
+    console.error('加载设备类型失败:', err)
+  }
+}
+
+const handleView = async (device) => {
+  try {
+    const response = await fetchDevice(device.id)
+    deviceDetail.value = response.data.device
+    isEditMode.value = false
+    
+    // 填充表单数据
+    const parameters = {}
+    // 首先初始化所有设备类型参数（使用默认值或空值）
+    if (deviceDetail.value.device_type?.parameters) {
+      for (const paramDef of deviceDetail.value.device_type.parameters) {
+        if (deviceDetail.value.parameters && paramDef.key in deviceDetail.value.parameters) {
+          // 如果参数值存在，转换类型
+          const value = deviceDetail.value.parameters[paramDef.key]
+          if (paramDef.type === 'number' && value !== null && value !== undefined) {
+            parameters[paramDef.key] = Number(value)
+          } else if (paramDef.type === 'boolean' && value !== null && value !== undefined) {
+            parameters[paramDef.key] = value === 'true' || value === true || value === 1
+          } else {
+            parameters[paramDef.key] = value
+          }
+        } else {
+          // 如果参数值不存在，使用默认值或空值
+          if (paramDef.type === 'number') {
+            parameters[paramDef.key] = null
+          } else if (paramDef.type === 'boolean') {
+            parameters[paramDef.key] = false
+          } else {
+            parameters[paramDef.key] = paramDef.default_value || ''
+          }
+        }
+      }
+    }
+    
+    formData.value = {
+      name: deviceDetail.value.name || '',
+      code: deviceDetail.value.code || '',
+      device_type_id: deviceDetail.value.device_type_id || null,
+      application_id: deviceDetail.value.application_id || null,
+      position_x: deviceDetail.value.position_x || null,
+      position_y: deviceDetail.value.position_y || null,
+      serial_number: deviceDetail.value.serial_number || '',
+      longitude: deviceDetail.value.longitude || null,
+      latitude: deviceDetail.value.latitude || null,
+      status: deviceDetail.value.status || '',
+      health_status: deviceDetail.value.health_status || '',
+      description: deviceDetail.value.description || '',
+      parameters: parameters
+    }
+    
+    dialogVisible.value = true
+  } catch (err) {
+    ElMessage.error('获取设备详情失败')
+    console.error('获取设备详情失败:', err)
+  }
+}
+
+const handleEdit = async (device) => {
+  await handleView(device)
+  isEditMode.value = true
+}
+
+const handleSubmit = async () => {
+  if (!formRef.value) return
+  
+  try {
+    await formRef.value.validate()
+    
+    // 清理参数值：保留所有有效值（包括 false、0、空字符串）
+    const cleanedParameters = {}
+    for (const [key, value] of Object.entries(formData.value.parameters)) {
+      // 只排除 null 和 undefined，保留其他所有值（包括 false、0、空字符串）
+      if (value !== null && value !== undefined) {
+        cleanedParameters[key] = value
+      }
+    }
+    
+    const submitData = {
+      name: formData.value.name,
+      code: formData.value.code,
+      device_type_id: formData.value.device_type_id,
+      application_id: formData.value.application_id,
+      position_x: formData.value.position_x,
+      position_y: formData.value.position_y,
+      serial_number: formData.value.serial_number,
+      longitude: formData.value.longitude,
+      latitude: formData.value.latitude,
+      status: formData.value.status,
+      health_status: formData.value.health_status,
+      description: formData.value.description,
+      parameters: cleanedParameters
+    }
+    
+    console.log('提交的设备数据:', submitData)
+    const response = await updateDevice(deviceDetail.value.id, submitData)
+    ElMessage.success('更新成功')
+    dialogVisible.value = false
+    loadDevices()
+  } catch (err) {
+    if (err !== false) {
+      const errorMessage = err.response?.data?.error || err.message || '更新失败，请稍后重试'
+      ElMessage.error(errorMessage)
+      console.error('更新设备失败:', err)
+      console.error('错误详情:', err.response?.data)
+    }
+  }
+}
+
+const handleDialogClose = () => {
+  formRef.value?.resetFields()
+  deviceDetail.value = null
+  isEditMode.value = false
+}
+
+const getParamTypeInput = (param) => {
+  if (!param) return 'text'
+  switch (param.type) {
+    case 'number':
+      return 'number'
+    case 'boolean':
+      return 'checkbox'
+    case 'date':
+      return 'date'
+    default:
+      return 'text'
+  }
+}
+
 onMounted(() => {
   loadDevices()
+  loadDeviceTypes()
 })
 </script>
 
@@ -154,7 +315,8 @@ onMounted(() => {
             <td>{{ device.ip_address || '-' }}</td>
             <td>{{ formatDate(device.last_heartbeat) }}</td>
             <td>
-              <button class="action-btn">查看</button>
+              <button class="action-btn" @click="handleView(device)">查看</button>
+              <button class="action-btn edit" @click="handleEdit(device)" style="margin-left: 8px">编辑</button>
             </td>
           </tr>
         </tbody>
@@ -180,6 +342,191 @@ onMounted(() => {
         </button>
       </div>
     </div>
+
+    <!-- 查看/编辑设备对话框 -->
+    <el-dialog
+      v-model="dialogVisible"
+      :title="isEditMode ? '编辑设备' : '查看设备'"
+      width="900px"
+      @close="handleDialogClose"
+    >
+      <el-form
+        ref="formRef"
+        :model="formData"
+        label-width="120px"
+        :disabled="!isEditMode"
+      >
+        <!-- 基本信息 -->
+        <el-divider content-position="left">基本信息</el-divider>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="设备名称" prop="name" :rules="[{ required: true, message: '请输入设备名称', trigger: 'blur' }]">
+              <el-input v-model="formData.name" placeholder="请输入设备名称" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="设备编码" prop="code" :rules="[{ required: true, message: '请输入设备编码', trigger: 'blur' }]">
+              <el-input v-model="formData.code" placeholder="请输入设备编码" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="设备类型" prop="device_type_id">
+              <el-select v-model="formData.device_type_id" placeholder="请选择设备类型" style="width: 100%">
+                <el-option
+                  v-for="dt in deviceTypes"
+                  :key="dt.id"
+                  :label="dt.name"
+                  :value="dt.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="序列号" prop="serial_number">
+              <el-input v-model="formData.serial_number" placeholder="请输入序列号" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="描述" prop="description">
+          <el-input
+            v-model="formData.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入设备描述"
+          />
+        </el-form-item>
+
+        <!-- 位置信息 -->
+        <el-divider content-position="left">位置信息</el-divider>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="显示X坐标" prop="position_x">
+              <el-input-number v-model="formData.position_x" :precision="2" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="显示Y坐标" prop="position_y">
+              <el-input-number v-model="formData.position_y" :precision="2" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="经度" prop="longitude">
+              <el-input-number v-model="formData.longitude" :precision="6" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="纬度" prop="latitude">
+              <el-input-number v-model="formData.latitude" :precision="6" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <!-- 状态信息 -->
+        <el-divider content-position="left">状态信息</el-divider>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="设备状态" prop="status">
+              <el-select v-model="formData.status" placeholder="请选择状态" style="width: 100%">
+                <el-option label="在线" value="在线" />
+                <el-option label="离线" value="离线" />
+                <el-option label="告警" value="告警" />
+                <el-option label="维护中" value="维护中" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="健康状况" prop="health_status">
+              <el-select v-model="formData.health_status" placeholder="请选择健康状况" style="width: 100%">
+                <el-option label="良好" value="良好" />
+                <el-option label="需关注" value="需关注" />
+                <el-option label="警告" value="警告" />
+                <el-option label="故障" value="故障" />
+                <el-option label="维护中" value="维护中" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <!-- 设备类型特有参数 -->
+        <el-divider content-position="left" v-if="deviceDetail?.device_type?.parameters?.length > 0">
+          设备类型特有参数
+        </el-divider>
+        <template v-if="deviceDetail?.device_type?.parameters">
+          <el-form-item
+            v-for="param in deviceDetail.device_type.parameters"
+            :key="param.key"
+            :label="param.name"
+            :prop="`parameters.${param.key}`"
+            :rules="param.required && isEditMode ? [{ required: true, message: `请输入${param.name}`, trigger: 'blur' }] : []"
+          >
+            <template v-if="isEditMode">
+              <el-input
+                v-if="param.type === 'string'"
+                v-model="formData.parameters[param.key]"
+                :placeholder="`请输入${param.name}`"
+              />
+              <el-input-number
+                v-else-if="param.type === 'number'"
+                v-model="formData.parameters[param.key]"
+                :placeholder="`请输入${param.name}`"
+                style="width: 100%"
+              />
+              <el-switch
+                v-else-if="param.type === 'boolean'"
+                v-model="formData.parameters[param.key]"
+              />
+              <el-date-picker
+                v-else-if="param.type === 'date'"
+                v-model="formData.parameters[param.key]"
+                type="date"
+                :placeholder="`请选择${param.name}`"
+                style="width: 100%"
+              />
+            </template>
+            <template v-else>
+              <span v-if="param.type === 'boolean'" style="color: #606266">
+                {{ formData.parameters[param.key] !== undefined && formData.parameters[param.key] !== null ? (formData.parameters[param.key] ? '是' : '否') : '-' }}
+              </span>
+              <span v-else style="color: #606266">
+                {{ formData.parameters[param.key] !== undefined && formData.parameters[param.key] !== null ? formData.parameters[param.key] : '-' }}
+              </span>
+            </template>
+            <span v-if="param.required" style="color: #f56c6c; margin-left: 8px">*</span>
+          </el-form-item>
+        </template>
+
+        <!-- 只读信息 -->
+        <el-divider content-position="left" v-if="!isEditMode">其他信息</el-divider>
+        <template v-if="!isEditMode && deviceDetail">
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="最后心跳">
+                <span>{{ formatDate(deviceDetail.last_heartbeat) }}</span>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="创建时间">
+                <span>{{ formatDate(deviceDetail.created_at) }}</span>
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-form-item label="更新时间">
+            <span>{{ formatDate(deviceDetail.updated_at) }}</span>
+          </el-form-item>
+        </template>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="dialogVisible = false">关闭</el-button>
+          <el-button v-if="isEditMode" type="primary" @click="handleSubmit">保存</el-button>
+          <el-button v-else type="primary" @click="isEditMode = true">编辑</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -417,6 +764,23 @@ onMounted(() => {
 .action-btn:hover {
   background: #409eff;
   color: #ffffff;
+}
+
+.action-btn.edit {
+  background: #f0f9ff;
+  color: #409eff;
+  border-color: #b3d8ff;
+}
+
+.action-btn.edit:hover {
+  background: #409eff;
+  color: #ffffff;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .pagination {

@@ -1,0 +1,175 @@
+[
+  {
+    "name": "摄像头",
+    "code": "camera",
+    "description": "工业摄像头设备，用于图像采集和识别",
+    "parameters": [
+      {
+        "name": "曝光时间",
+        "key": "exposure",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "分辨率",
+        "key": "resolution",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "帧率",
+        "key": "frame_rate",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "传感器类型",
+        "key": "sensor_type",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "镜头类型",
+        "key": "lens_type",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "夜视功能",
+        "key": "night_vision",
+        "type": "boolean",
+        "required": false
+      }
+    ]
+  },
+  {
+    "name": "交换机",
+    "code": "switch",
+    "description": "网络交换机设备，用于网络连接和数据转发",
+    "parameters": [
+      {
+        "name": "型号",
+        "key": "model",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "端口数量",
+        "key": "port_count",
+        "type": "number",
+        "required": true
+      },
+      {
+        "name": "端口类型",
+        "key": "port_type",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "管理类型",
+        "key": "management_type",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "VLAN支持",
+        "key": "vlan_support",
+        "type": "boolean",
+        "required": false
+      },
+      {
+        "name": "POE支持",
+        "key": "poe_support",
+        "type": "boolean",
+        "required": false
+      }
+    ]
+  },
+  {
+    "name": "PLC",
+    "code": "plc",
+    "description": "可编程逻辑控制器，用于工业自动化控制",
+    "parameters": [
+      {
+        "name": "程序版本",
+        "key": "program",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "端口",
+        "key": "port",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "CPU型号",
+        "key": "cpu_model",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "内存大小",
+        "key": "memory_size",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "IO点数",
+        "key": "io_points",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "通信协议",
+        "key": "communication_protocol",
+        "type": "string",
+        "required": false
+      }
+    ]
+  },
+  {
+    "name": "服务器",
+    "code": "server",
+    "description": "服务器设备，用于数据存储和业务处理",
+    "parameters": [
+      {
+        "name": "型号",
+        "key": "model",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "CPU",
+        "key": "cpu",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "内存",
+        "key": "memory",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "存储",
+        "key": "storage",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "操作系统",
+        "key": "os",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "服务器类型",
+        "key": "server_type",
+        "type": "string",
+        "required": false
+      }
+    ]
+  }
+]
+

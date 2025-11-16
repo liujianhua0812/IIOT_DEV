@@ -1,5 +1,6 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import apiClient from '@/services/api'
 
 // 运行状态
 const runStatus = ref('RUN') // RUN, IDLE, STOP
@@ -12,6 +13,8 @@ onMounted(() => {
   timeInterval = setInterval(() => {
     currentTime.value = new Date()
   }, 1000)
+  // 加载设备数据
+  loadDevices()
 })
 onUnmounted(() => {
   if (timeInterval) clearInterval(timeInterval)
@@ -46,8 +49,11 @@ const processSteps = ref([
   { id: 'qc', name: '质检', active: false }
 ])
 
-// 当前工位
-const currentStation = ref('read')
+// 设备数据加载状态
+const devicesLoaded = ref(false)
+
+// 显示/隐藏设备和网络拓扑
+const showDevicesAndTopology = ref(false)
 
 // 统计数据
 const stats = ref({
@@ -57,8 +63,89 @@ const stats = ref({
   trend: [120, 125, 118, 130, 128, 135, 132] // 最近7个节拍的趋势
 })
 
-// 设备数据
-const devices = {
+// 设备数据（从 API 加载）
+const devices = ref({
+  read: [],
+  label: [],
+  pick: [],
+  qc: [],
+  network: []
+})
+
+// 设备连接信息（从 API 加载）
+const connections = ref([])
+
+// 确保设备数据始终有默认值
+const getDevices = () => {
+  return devices.value || {
+    read: [],
+    label: [],
+    pick: [],
+    qc: [],
+    network: []
+  }
+}
+
+// 加载设备数据
+const loadDevices = async () => {
+  try {
+    const response = await apiClient.get('/api/lenovofms/devices')
+    if (response.data && response.data.devices) {
+      // 确保所有工位都有数组
+      const loadedDevices = {
+        read: response.data.devices.read || [],
+        label: response.data.devices.label || [],
+        pick: response.data.devices.pick || [],
+        qc: response.data.devices.qc || [],
+        network: response.data.devices.network || []
+      }
+      
+      // 直接赋值给 ref，Vue 会自动处理响应式更新
+      devices.value = loadedDevices
+      
+      // 加载连接信息
+      if (response.data.connections) {
+        connections.value = response.data.connections || []
+      }
+      
+      devicesLoaded.value = true
+    } else {
+      devicesLoaded.value = false
+    }
+  } catch (error) {
+    console.error('加载设备数据失败:', error)
+    // 如果 API 失败，使用备份数据
+    if (devices_backup) {
+      devices.value = {
+        read: devices_backup.read || [],
+        label: devices_backup.label || [],
+        pick: devices_backup.pick || [],
+        qc: devices_backup.qc || [],
+        network: devices_backup.network || []
+      }
+      devicesLoaded.value = true
+    } else {
+      devices.value = {
+        read: [],
+        label: [],
+        pick: [],
+        qc: [],
+        network: []
+      }
+      devicesLoaded.value = false
+    }
+  }
+}
+
+// 切换设备和网络拓扑显示
+const toggleDevicesAndTopology = () => {
+  if (devicesLoaded.value) {
+    showDevicesAndTopology.value = !showDevicesAndTopology.value
+  }
+}
+
+// 原始设备数据（作为备份，如果 API 失败时使用）
+const devices_backup = {
   read: [
     // 读码区：两个摄像头、一个指示灯、一个PLC、一个交换机、一个伺服电机
     { 
@@ -385,62 +472,51 @@ const devices = {
   ]
 }
 
-// 网络拓扑连接关系
-const networkTopology = {
-  // 读码区连接
-  read: {
-    // 伺服电机和指示灯连接到PLC
-    'servo-read-1': 'plc-read-1',
-    'indicator-read-1': 'plc-read-1',
-    // PLC和摄像头连接到交换机
-    'plc-read-1': 'switch-read-1',
-    'camera-read-1': 'switch-read-1',
-    'camera-read-2': 'switch-read-1',
-    // 读码区交换机连接到核心交换机
-    'switch-read-1': 'switch-network-1'
-  },
-  // 贴标区连接
-  label: {
-    // 三个摄像头连接到读码区的交换机
-    'camera-label-1': 'switch-read-1',
-    'camera-label-2': 'switch-read-1',
-    'camera-label-3': 'switch-read-1',
-    // 两个补光灯和指示灯连接到读码区的PLC
-    'light-label-1': 'plc-read-1',
-    'light-label-2': 'plc-read-1',
-    'indicator-label-1': 'plc-read-1'
-  },
-  // 取标签区连接
-  pick: {
-    // 机械臂、取标签摄像头、工控机连接到质检区的交换机
-    'robot-pick-1': 'switch-qc-1',
-    'camera-pick-1': 'switch-qc-1',
-    'monitor-pick-1': 'switch-qc-1',
-    // 标签盘连接到质检区的PLC
-    'tray-pick-1': 'plc-qc-1'
-  },
-  // 质检区连接
-  qc: {
-    // 摄像头和PLC连接到交换机
-    'camera-qc-1': 'switch-qc-1',
-    'plc-qc-1': 'switch-qc-1',
-    // 指示灯和伺服电机连接到PLC
-    'indicator-qc-1': 'plc-qc-1',
-    'servo-qc-1': 'plc-qc-1',
-    // 质检区交换机连接到核心交换机
-    'switch-qc-1': 'switch-network-1'
-  },
-  // 网络区域连接
-  network: {
-    // 两台服务器连接到核心交换机
-    'server-mes-1': 'switch-network-1',
-    'server-mbi-1': 'switch-network-1'
+// 根据设备 code 查找设备及其工位
+const findDeviceByCode = (deviceCode) => {
+  if (!deviceCode) return { device: null, station: null }
+  
+  const stations = ['read', 'label', 'pick', 'qc', 'network']
+  for (const station of stations) {
+    const device = (devices.value[station] || []).find(d => d.id === deviceCode)
+    if (device) {
+      return { device, station }
+    }
   }
+  return { device: null, station: null }
+}
+
+// 获取连接线的起点和终点坐标
+const getConnectionStartX = (conn) => {
+  const { device, station } = findDeviceByCode(conn.source)
+  return getDeviceSvgPosition(device, station)?.x || 0
+}
+
+const getConnectionStartY = (conn) => {
+  const { device, station } = findDeviceByCode(conn.source)
+  return getDeviceSvgPosition(device, station)?.y || 0
+}
+
+const getConnectionEndX = (conn) => {
+  const { device, station } = findDeviceByCode(conn.target)
+  return getDeviceSvgPosition(device, station)?.x || 0
+}
+
+const getConnectionEndY = (conn) => {
+  const { device, station } = findDeviceByCode(conn.target)
+  return getDeviceSvgPosition(device, station)?.y || 0
 }
 
 // 获取设备在SVG中的坐标（用于绘制连线）
 const getDeviceSvgPosition = (device, station) => {
-  if (!device) return { x: 0, y: 0 }
+  if (!device) {
+    // 静默返回，不输出警告（因为设备可能还未加载）
+    return { x: 0, y: 0 }
+  }
+  if (!device.position) {
+    console.warn('getDeviceSvgPosition: 设备位置数据缺失', { device: device.id || device.name, station })
+    return { x: 0, y: 0 }
+  }
   
   // 调整工位位置，整体向下移动，减少底部空白
   const stationPositions = {
@@ -466,12 +542,17 @@ const getDeviceSvgPosition = (device, station) => {
 
 // 获取设备图标的定位样式（用于HTML覆盖层）
 const getDeviceIconStyle = (device, station) => {
+  if (!device || !device.position) {
+    console.warn('getDeviceIconStyle: 设备或位置数据缺失', { device, station })
+    return { left: '0%', top: '0%' }
+  }
   const svgPos = getDeviceSvgPosition(device, station)
   // SVG viewBox 是 "0 0 1000 500"
-  return {
+  const style = {
     left: `${(svgPos.x / 1000) * 100}%`,
     top: `${(svgPos.y / 500) * 100}%`
   }
+  return style
 }
 
 // 选中的设备
@@ -562,11 +643,11 @@ const endDrag = () => {
 // 打印所有设备位置
 const printDevicePositions = () => {
   console.log('========== 设备位置信息 ==========')
-  Object.keys(devices).forEach(station => {
+  Object.keys(devices.value).forEach(station => {
     const stationName = station === 'read' ? '读码区' : station === 'label' ? '贴标区' : station === 'pick' ? '取标签区' : station === 'qc' ? '质检区' : '网络区域'
     console.log(`\n【${stationName}】`)
-    devices[station].forEach(device => {
-      const positionStr = `${device.name} (${device.id}): x=${device.position.x.toFixed(2)}, y=${device.position.y.toFixed(2)}, station=${device.station}, type=${device.type}`
+    devices.value[station].forEach(device => {
+      const positionStr = `${device.name} (${device.id}): x=${device.position.x.toFixed(2)}, y=${device.position.y.toFixed(2)}, type=${device.type}`
       console.log(positionStr)
     })
   })
@@ -574,11 +655,11 @@ const printDevicePositions = () => {
   
   // 同时输出为纯文本格式，方便复制
   let textOutput = '========== 设备位置信息 ==========\n'
-  Object.keys(devices).forEach(station => {
+  Object.keys(devices.value).forEach(station => {
     const stationName = station === 'read' ? '读码区' : station === 'label' ? '贴标区' : station === 'pick' ? '取标签区' : station === 'qc' ? '质检区' : '网络区域'
     textOutput += `\n【${stationName}】\n`
-    devices[station].forEach(device => {
-      textOutput += `${device.name} (${device.id}): x=${device.position.x.toFixed(2)}, y=${device.position.y.toFixed(2)}, station=${device.station}, type=${device.type}\n`
+    devices.value[station].forEach(device => {
+      textOutput += `${device.name} (${device.id}): x=${device.position.x.toFixed(2)}, y=${device.position.y.toFixed(2)}, type=${device.type}\n`
     })
   })
   textOutput += '\n========== 设备位置信息结束 =========='
@@ -716,32 +797,12 @@ const isSvgPath = (icon) => {
 // 处理设备点击
 const handleDeviceClick = (device) => {
   selectedDevice.value = device
-  currentStation.value = device.station
-}
-
-// 处理工位点击
-const handleStationClick = (stationId) => {
-  currentStation.value = stationId
-  selectedDevice.value = null
 }
 
 // 关闭设备详情
 const closeDeviceInfo = () => {
   selectedDevice.value = null
 }
-
-// 获取当前工位的设备列表
-const currentStationDevices = computed(() => {
-  return devices[currentStation.value] || []
-})
-
-// 工位配置
-const stations = [
-  { id: 'read', name: '读码区', x: 100, y: 150, width: 200, height: 100, color: '#87CEEB' },
-  { id: 'label', name: '贴标区', x: 400, y: 150, width: 200, height: 100, color: '#90EE90' },
-  { id: 'pick', name: '取标签区', x: 500, y: 280, width: 120, height: 80, color: '#FFA500' },
-  { id: 'qc', name: '质检区', x: 700, y: 150, width: 200, height: 100, color: '#DDA0DD' }
-]
 
 </script>
 
@@ -753,8 +814,22 @@ const stations = [
         <h2 class="title">柔性贴标工位生产示意图</h2>
       </div>
       <div class="header-right">
-        <button class="print-btn" @click="printDevicePositions" title="打印设备位置到控制台">
+        <button 
+          class="print-btn" 
+          @click="printDevicePositions" 
+          title="打印设备位置到控制台"
+          :disabled="!devicesLoaded"
+        >
           📋 打印设备位置
+        </button>
+        <button 
+          class="toggle-btn" 
+          @click="toggleDevicesAndTopology" 
+          :title="showDevicesAndTopology ? '隐藏设备和网络拓扑' : '显示设备和网络拓扑'"
+          :disabled="!devicesLoaded"
+          :class="{ active: showDevicesAndTopology }"
+        >
+          {{ showDevicesAndTopology ? '👁️ 隐藏设备' : '👁️‍🗨️ 显示设备' }}
         </button>
         <span class="divider">|</span>
         <span class="production-line">{{ productionLine }}</span>
@@ -853,7 +928,6 @@ const stations = [
             <!-- 读码区（3D长方体效果） -->
             <g 
               class="station-group read-station"
-              @click="handleStationClick('read')"
             >
               <!-- 顶面 -->
               <polygon
@@ -887,7 +961,6 @@ const stations = [
             <!-- 贴标区 -->
             <g 
               class="station-group label-station"
-              @click="handleStationClick('label')"
             >
               <!-- 顶面 -->
               <polygon
@@ -914,7 +987,6 @@ const stations = [
             <!-- 取标签区（在贴标区后面） -->
             <g 
               class="station-group pick-station"
-              @click="handleStationClick('pick')"
             >
               <!-- 顶面 -->
               <polygon
@@ -953,7 +1025,6 @@ const stations = [
             <!-- 质检区 -->
             <g 
               class="station-group qc-station"
-              @click="handleStationClick('qc')"
             >
               <!-- 顶面 -->
               <polygon
@@ -1018,143 +1089,26 @@ const stations = [
             <line x1="300" y1="180" x2="400" y2="180" stroke="#666" stroke-width="3" stroke-dasharray="5,5" opacity="0.5"/>
             <line x1="600" y1="180" x2="700" y2="180" stroke="#666" stroke-width="3" stroke-dasharray="5,5" opacity="0.5"/>
 
-            <!-- 网络拓扑连线（动态计算） -->
-            <g class="network-topology" stroke="#FFD700" stroke-width="2.5" opacity="0.8" fill="none">
-              <!-- 读码区内部连接 -->
-              <!-- 伺服电机和指示灯连接到PLC -->
-              <line 
-                v-for="deviceId in ['servo-read-1', 'indicator-read-1']"
-                :key="`${deviceId}-plc`"
-                :x1="getDeviceSvgPosition(devices.read.find(d => d.id === deviceId), 'read').x"
-                :y1="getDeviceSvgPosition(devices.read.find(d => d.id === deviceId), 'read').y"
-                :x2="getDeviceSvgPosition(devices.read.find(d => d.id === 'plc-read-1'), 'read').x"
-                :y2="getDeviceSvgPosition(devices.read.find(d => d.id === 'plc-read-1'), 'read').y"
-                stroke="#FFD700"
-              />
-              <!-- PLC和摄像头连接到交换机 -->
-              <line 
-                :x1="getDeviceSvgPosition(devices.read.find(d => d.id === 'plc-read-1'), 'read').x"
-                :y1="getDeviceSvgPosition(devices.read.find(d => d.id === 'plc-read-1'), 'read').y"
-                :x2="getDeviceSvgPosition(devices.read.find(d => d.id === 'switch-read-1'), 'read').x"
-                :y2="getDeviceSvgPosition(devices.read.find(d => d.id === 'switch-read-1'), 'read').y"
-                stroke="#FFD700"
-              />
-              <line 
-                v-for="deviceId in ['camera-read-1', 'camera-read-2']"
-                :key="`${deviceId}-switch`"
-                :x1="getDeviceSvgPosition(devices.read.find(d => d.id === deviceId), 'read').x"
-                :y1="getDeviceSvgPosition(devices.read.find(d => d.id === deviceId), 'read').y"
-                :x2="getDeviceSvgPosition(devices.read.find(d => d.id === 'switch-read-1'), 'read').x"
-                :y2="getDeviceSvgPosition(devices.read.find(d => d.id === 'switch-read-1'), 'read').y"
-                stroke="#FFD700"
-              />
-              <!-- 读码区交换机连接到核心交换机 -->
-              <line 
-                :x1="getDeviceSvgPosition(devices.read.find(d => d.id === 'switch-read-1'), 'read').x"
-                :y1="getDeviceSvgPosition(devices.read.find(d => d.id === 'switch-read-1'), 'read').y"
-                :x2="getDeviceSvgPosition(devices.network.find(d => d.id === 'switch-network-1'), 'network').x"
-                :y2="getDeviceSvgPosition(devices.network.find(d => d.id === 'switch-network-1'), 'network').y"
-                stroke="#FFD700"
-                stroke-dasharray="3,3"
-              />
-              
-              <!-- 贴标区设备连接到读码区设备 -->
-              <!-- 三个摄像头连接到读码区的交换机 -->
-              <line 
-                v-for="deviceId in ['camera-label-1', 'camera-label-2', 'camera-label-3']"
-                :key="`${deviceId}-switch-read`"
-                :x1="getDeviceSvgPosition(devices.label.find(d => d.id === deviceId), 'label').x"
-                :y1="getDeviceSvgPosition(devices.label.find(d => d.id === deviceId), 'label').y"
-                :x2="getDeviceSvgPosition(devices.read.find(d => d.id === 'switch-read-1'), 'read').x"
-                :y2="getDeviceSvgPosition(devices.read.find(d => d.id === 'switch-read-1'), 'read').y"
-                stroke="#FFD700"
-              />
-              <!-- 两个补光灯和指示灯连接到读码区的PLC -->
-              <line 
-                v-for="deviceId in ['light-label-1', 'light-label-2', 'indicator-label-1']"
-                :key="`${deviceId}-plc-read`"
-                :x1="getDeviceSvgPosition(devices.label.find(d => d.id === deviceId), 'label').x"
-                :y1="getDeviceSvgPosition(devices.label.find(d => d.id === deviceId), 'label').y"
-                :x2="getDeviceSvgPosition(devices.read.find(d => d.id === 'plc-read-1'), 'read').x"
-                :y2="getDeviceSvgPosition(devices.read.find(d => d.id === 'plc-read-1'), 'read').y"
-                stroke="#FFD700"
-              />
-              
-              <!-- 取标签区设备连接到质检区设备 -->
-              <!-- 机械臂、取标签摄像头、工控机连接到质检区的交换机 -->
-              <line 
-                v-for="deviceId in ['robot-pick-1', 'camera-pick-1', 'monitor-pick-1']"
-                :key="`${deviceId}-switch-qc`"
-                :x1="getDeviceSvgPosition(devices.pick.find(d => d.id === deviceId), 'pick').x"
-                :y1="getDeviceSvgPosition(devices.pick.find(d => d.id === deviceId), 'pick').y"
-                :x2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'switch-qc-1'), 'qc').x"
-                :y2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'switch-qc-1'), 'qc').y"
-                stroke="#FFD700"
-              />
-              <!-- 标签盘连接到质检区的PLC -->
-              <line 
-                :x1="getDeviceSvgPosition(devices.pick.find(d => d.id === 'tray-pick-1'), 'pick').x"
-                :y1="getDeviceSvgPosition(devices.pick.find(d => d.id === 'tray-pick-1'), 'pick').y"
-                :x2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'plc-qc-1'), 'qc').x"
-                :y2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'plc-qc-1'), 'qc').y"
-                stroke="#FFD700"
-              />
-              
-              <!-- 质检区内部连接 -->
-              <!-- 摄像头和PLC连接到交换机 -->
-              <line 
-                :x1="getDeviceSvgPosition(devices.qc.find(d => d.id === 'camera-qc-1'), 'qc').x"
-                :y1="getDeviceSvgPosition(devices.qc.find(d => d.id === 'camera-qc-1'), 'qc').y"
-                :x2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'switch-qc-1'), 'qc').x"
-                :y2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'switch-qc-1'), 'qc').y"
-                stroke="#FFD700"
-              />
-              <line 
-                :x1="getDeviceSvgPosition(devices.qc.find(d => d.id === 'plc-qc-1'), 'qc').x"
-                :y1="getDeviceSvgPosition(devices.qc.find(d => d.id === 'plc-qc-1'), 'qc').y"
-                :x2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'switch-qc-1'), 'qc').x"
-                :y2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'switch-qc-1'), 'qc').y"
-                stroke="#FFD700"
-              />
-              <!-- 指示灯和伺服电机连接到PLC -->
-              <line 
-                v-for="deviceId in ['indicator-qc-1', 'servo-qc-1']"
-                :key="`${deviceId}-plc-qc`"
-                :x1="getDeviceSvgPosition(devices.qc.find(d => d.id === deviceId), 'qc').x"
-                :y1="getDeviceSvgPosition(devices.qc.find(d => d.id === deviceId), 'qc').y"
-                :x2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'plc-qc-1'), 'qc').x"
-                :y2="getDeviceSvgPosition(devices.qc.find(d => d.id === 'plc-qc-1'), 'qc').y"
-                stroke="#FFD700"
-              />
-              <!-- 质检区交换机连接到核心交换机 -->
-              <line 
-                :x1="getDeviceSvgPosition(devices.qc.find(d => d.id === 'switch-qc-1'), 'qc').x"
-                :y1="getDeviceSvgPosition(devices.qc.find(d => d.id === 'switch-qc-1'), 'qc').y"
-                :x2="getDeviceSvgPosition(devices.network.find(d => d.id === 'switch-network-1'), 'network').x"
-                :y2="getDeviceSvgPosition(devices.network.find(d => d.id === 'switch-network-1'), 'network').y"
-                stroke="#FFD700"
-                stroke-dasharray="3,3"
-              />
-              
-              <!-- 网络区域连接 -->
-              <!-- 两台服务器连接到核心交换机 -->
-              <line 
-                v-for="deviceId in ['server-mes-1', 'server-mbi-1']"
-                :key="`${deviceId}-switch-network`"
-                :x1="getDeviceSvgPosition(devices.network.find(d => d.id === deviceId), 'network').x"
-                :y1="getDeviceSvgPosition(devices.network.find(d => d.id === deviceId), 'network').y"
-                :x2="getDeviceSvgPosition(devices.network.find(d => d.id === 'switch-network-1'), 'network').x"
-                :y2="getDeviceSvgPosition(devices.network.find(d => d.id === 'switch-network-1'), 'network').y"
+            <!-- 网络拓扑连线（从数据库动态加载） -->
+            <g v-if="showDevicesAndTopology && devicesLoaded" class="network-topology" stroke="#FFD700" stroke-width="2.5" opacity="0.8" fill="none">
+              <line
+                v-for="(conn, index) in connections"
+                :key="`connection-${conn.source}-${conn.target}-${index}`"
+                :x1="getConnectionStartX(conn)"
+                :y1="getConnectionStartY(conn)"
+                :x2="getConnectionEndX(conn)"
+                :y2="getConnectionEndY(conn)"
+                :stroke-dasharray="conn.type === 'network' && (conn.source.includes('switch') || conn.target.includes('switch')) ? '3,3' : undefined"
                 stroke="#FFD700"
               />
             </g>
           </svg>
 
           <!-- 设备图标覆盖层（HTML元素，定位在SVG上方） -->
-          <div class="device-icons-overlay">
+          <div v-if="showDevicesAndTopology && devicesLoaded" class="device-icons-overlay">
             <!-- 读码区设备 -->
             <div
-              v-for="device in devices.read"
+              v-for="device in (devices.read || [])"
               :key="device.id"
               class="device-icon"
               :class="{ 
@@ -1188,7 +1142,7 @@ const stations = [
 
             <!-- 贴标区设备 -->
             <div
-              v-for="device in devices.label"
+              v-for="device in (devices.label || [])"
               :key="device.id"
               class="device-icon"
               :class="{ 
@@ -1222,8 +1176,8 @@ const stations = [
 
             <!-- 取标签区设备 -->
             <div
-              v-for="device in devices.pick"
-                :key="device.id"
+              v-for="device in (devices.pick || [])"
+              :key="device.id"
                 class="device-icon"
               :class="{ 
                 active: selectedDevice?.id === device.id,
@@ -1256,7 +1210,7 @@ const stations = [
 
             <!-- 质检区设备 -->
             <div
-              v-for="device in devices.qc"
+              v-for="device in (devices.qc || [])"
               :key="device.id"
               class="device-icon"
               :class="{ 
@@ -1290,7 +1244,7 @@ const stations = [
 
             <!-- 网络区域设备（贴标区上方） -->
             <div
-              v-for="device in devices.network"
+              v-for="device in (devices.network || [])"
               :key="device.id"
               class="device-icon"
               :class="{ 
@@ -1388,7 +1342,8 @@ export default {
   color: #ffffff;
 }
 
-.print-btn {
+.print-btn,
+.toggle-btn {
   padding: 6px 12px;
   background: linear-gradient(135deg, #409EFF, #66b1ff);
   color: #fff;
@@ -1401,14 +1356,30 @@ export default {
   margin-right: 8px;
 }
 
-.print-btn:hover {
+.print-btn:hover:not(:disabled),
+.toggle-btn:hover:not(:disabled) {
   background: linear-gradient(135deg, #66b1ff, #409EFF);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(64, 158, 255, 0.3);
 }
 
-.print-btn:active {
+.print-btn:active:not(:disabled),
+.toggle-btn:active:not(:disabled) {
   transform: translateY(0);
+}
+
+.print-btn:disabled,
+.toggle-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toggle-btn.active {
+  background: linear-gradient(135deg, #67C23A, #85ce61);
+}
+
+.toggle-btn.active:hover:not(:disabled) {
+  background: linear-gradient(135deg, #85ce61, #67C23A);
 }
 
 .header-right {

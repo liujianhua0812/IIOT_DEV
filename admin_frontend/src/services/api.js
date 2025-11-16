@@ -10,6 +10,14 @@ export const fetchHomeOverview = () => apiClient.get('/api/home/overview')
 export const fetchHomeDeployments = () => apiClient.get('/api/home/deployments')
 
 export const fetchDevices = (params = {}) => apiClient.get('/api/devices', { params })
+export const fetchDevice = (deviceId) => apiClient.get(`/api/devices/${deviceId}`)
+export const updateDevice = (deviceId, data) => apiClient.put(`/api/devices/${deviceId}`, data)
+
+// 设备类型管理 API
+export const fetchDeviceTypes = () => apiClient.get('/api/device-types')
+export const createDeviceType = (data) => apiClient.post('/api/device-types', data)
+export const updateDeviceType = (id, data) => apiClient.put(`/api/device-types/${id}`, data)
+export const deleteDeviceType = (id) => apiClient.delete(`/api/device-types/${id}`)
 
 export const fetchChinaGeoJson = () => apiClient.get('/api/map/china-geojson')
 

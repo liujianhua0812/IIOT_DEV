@@ -286,6 +286,39 @@ class User(Base):
         return f"<User(id={self.id}, username='{self.username}', email='{self.email}')>"
 
 
+class DeviceTopology(Base):
+    """设备拓扑连接表"""
+    __tablename__ = "device_topologies"
+
+    id = Column(Integer, primary_key=True, index=True, comment="连接ID")
+    source_device_code = Column(String(100), nullable=False, comment="源设备编码")
+    target_device_code = Column(String(100), nullable=False, comment="目标设备编码")
+    connection_type = Column(String(50), nullable=True, comment="连接类型（如：network, control等）")
+    description = Column(Text, nullable=True, comment="连接描述")
+    created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
+
+    # 唯一约束：同一对设备只能有一条连接
+    __table_args__ = (
+        UniqueConstraint('source_device_code', 'target_device_code', name='uq_device_topology'),
+    )
+
+    def to_dict(self):
+        """转换为字典格式"""
+        return {
+            "id": self.id,
+            "source_device_code": self.source_device_code,
+            "target_device_code": self.target_device_code,
+            "connection_type": self.connection_type,
+            "description": self.description,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    def __repr__(self):
+        return f"<DeviceTopology(id={self.id}, source='{self.source_device_code}', target='{self.target_device_code}')>"
+
+
 def init_db():
     """初始化数据库，创建所有表"""
     Base.metadata.create_all(bind=engine)

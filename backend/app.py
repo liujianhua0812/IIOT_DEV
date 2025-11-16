@@ -159,6 +159,92 @@ def register_routes(app: Flask) -> None:
         finally:
             db.close()
 
+    @app.get("/api/lenovofms/devices")
+    def get_lenovofms_devices():
+        """获取 LenovoFMS 系统的设备数据（按工位分组）和拓扑连接"""
+        try:
+            db = next(get_db())
+            # 查询所有设备，按工位分组
+            # 工位信息存储在 description 字段中（格式：工位: station_name）
+            # 如果没有 description，则根据设备 code 判断工位（如 camera-read-1 -> read）
+            devices = db.query(Device).options(
+                joinedload(Device.parameter_values),
+                joinedload(Device.device_type).joinedload(DeviceType.parameters)
+            ).all()
+            
+            # 按工位分组
+            devices_by_station = {}
+            for device in devices:
+                # 从 description 中提取工位名称
+                station = 'unknown'
+                if device.description:
+                    if device.description.startswith('工位:'):
+                        station = device.description.replace('工位:', '').strip()
+                    elif device.description.startswith('工位：'):
+                        station = device.description.replace('工位：', '').strip()
+                
+                # 如果 description 中没有工位信息，尝试从 code 中提取
+                if station == 'unknown' and device.code:
+                    # 设备 code 格式：type-station-number，如 camera-read-1 -> read
+                    parts = device.code.split('-')
+                    if len(parts) >= 2:
+                        # 检查第二部分是否是已知的工位
+                        potential_station = parts[1]
+                        if potential_station in ['read', 'label', 'pick', 'qc', 'network']:
+                            station = potential_station
+                
+                if station not in devices_by_station:
+                    devices_by_station[station] = []
+                
+                # 转换为前端格式
+                device_dict = {
+                    'id': device.code,
+                    'name': device.name,
+                    'type': device.device_type.code if device.device_type else 'unknown',
+                    'station': station,
+                    'status': device.status or 'online',
+                    'position': {
+                        'x': device.position_x or 0,
+                        'y': device.position_y or 0
+                    },
+                    'details': {}
+                }
+                
+                # 添加参数值到 details
+                if device.parameter_values:
+                    for pv in device.parameter_values:
+                        # 将 ip_address 映射回 ip（前端使用）
+                        key = 'ip' if pv.param_key == 'ip_address' else pv.param_key
+                        device_dict['details'][key] = pv.param_value
+                
+                devices_by_station[station].append(device_dict)
+            
+            # 查询设备拓扑连接
+            from database import DeviceTopology
+            topologies = db.query(DeviceTopology).all()
+            connections = []
+            for topology in topologies:
+                connections.append({
+                    'source': topology.source_device_code,
+                    'target': topology.target_device_code,
+                    'type': topology.connection_type,
+                    'description': topology.description
+                })
+            
+            return jsonify({
+                "devices": devices_by_station,
+                "connections": connections
+            }), 200
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"获取 LenovoFMS 设备失败: {str(e)}")
+            print(error_trace)
+            return jsonify({"error": str(e), "traceback": error_trace}), 500
+        finally:
+            if 'db' in locals():
+                db.close()
+
     @app.get("/api/devices/<int:device_id>")
     def get_device(device_id):
         """获取单个设备详情"""

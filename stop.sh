@@ -80,19 +80,19 @@ else
     fi
 fi
 
-# 停止 LenonoPLM
-if [ -f "logs/lenonoplm.pid" ]; then
-    PLM_PID=$(cat logs/lenonoplm.pid)
+# 停止 LenovoPLM
+if [ -f "logs/lenovoplm.pid" ]; then
+    PLM_PID=$(cat logs/lenovoplm.pid)
     if ps -p $PLM_PID > /dev/null 2>&1; then
         kill $PLM_PID 2>/dev/null || true
-        echo -e "${GREEN}LenonoPLM 已停止 (PID: $PLM_PID)${NC}"
+        echo -e "${GREEN}LenovoPLM 已停止 (PID: $PLM_PID)${NC}"
     fi
-    rm -f logs/lenonoplm.pid
+    rm -f logs/lenovoplm.pid
 else
     PLM_PID=$(lsof -ti:10064 2>/dev/null || true)
     if [ ! -z "$PLM_PID" ]; then
         kill $PLM_PID 2>/dev/null || true
-        echo -e "${GREEN}LenonoPLM 已停止 (PID: $PLM_PID)${NC}"
+        echo -e "${GREEN}LenovoPLM 已停止 (PID: $PLM_PID)${NC}"
     fi
 fi
 

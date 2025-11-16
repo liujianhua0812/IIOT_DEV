@@ -19,7 +19,7 @@ start_dev.bat
 - 展示前端：`http://localhost:10061` (`mmiiot_frontend`)
 - 管理前端：`http://localhost:10062` (`admin_frontend`)
 - LenovoFMS：`http://localhost:10063`
-- LenonoPLM：`http://localhost:10064`
+- LenovoPLM：`http://localhost:10064`
 - TellhowTraffic：`http://localhost:10065`
 - 数据库：`166.111.80.127:15432`（外部连接）
 - 模式：开发模式，启用 Debug，允许所有 CORS
@@ -107,8 +107,8 @@ npm run dev
 cd LenovoFMS
 npm run dev
 
-# LenonoPLM
-cd LenonoPLM
+# LenovoPLM
+cd LenovoPLM
 npm run dev
 
 # TellhowTraffic
@@ -149,7 +149,7 @@ npm run preview -- --port 10062
      - 10061：展示前端 (mmiiot_frontend)
      - 10062：管理前端 (admin_frontend)
      - 10063：LenovoFMS
-     - 10064：LenonoPLM
+     - 10064：LenovoPLM
      - 10065：TellhowTraffic
    - 部署模式访问地址：`http://166.111.80.127:10060-10065`
 3. **数据库连接**：确保可以访问对应的数据库服务器
@@ -167,7 +167,7 @@ lsof -i :10060  # 后端
 lsof -i :10061  # 展示前端
 lsof -i :10062  # 管理前端
 lsof -i :10063  # LenovoFMS
-lsof -i :10064  # LenonoPLM
+lsof -i :10064  # LenovoPLM
 lsof -i :10065  # TellhowTraffic
 
 # 停止占用端口的进程

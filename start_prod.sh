@@ -51,8 +51,8 @@ export VITE_API_BASE_URL=http://${DEPLOY_IP}:10060
 npm run build
 cd ..
 
-# 构建 LenonoPLM
-cd LenonoPLM
+# 构建 LenovoPLM
+cd LenovoPLM
 npm install
 export VITE_API_BASE_URL=http://${DEPLOY_IP}:10060
 npm run build
@@ -117,14 +117,14 @@ echo -e "${GREEN}LenovoFMS 已启动 (PID: $FMS_PID)${NC}"
 echo "  日志文件: logs/lenovofms.log"
 echo "  访问地址: http://${DEPLOY_IP}:10063"
 
-# 启动 LenonoPLM（端口10064）
-echo -e "${GREEN}正在启动 LenonoPLM...${NC}"
-cd LenonoPLM
-nohup npm run preview -- --port 10064 > ../logs/lenonoplm.log 2>&1 &
+# 启动 LenovoPLM（端口10064）
+echo -e "${GREEN}正在启动 LenovoPLM...${NC}"
+cd LenovoPLM
+nohup npm run preview -- --port 10064 > ../logs/lenovoplm.log 2>&1 &
 PLM_PID=$!
 cd ..
-echo -e "${GREEN}LenonoPLM 已启动 (PID: $PLM_PID)${NC}"
-echo "  日志文件: logs/lenonoplm.log"
+echo -e "${GREEN}LenovoPLM 已启动 (PID: $PLM_PID)${NC}"
+echo "  日志文件: logs/lenovoplm.log"
 echo "  访问地址: http://${DEPLOY_IP}:10064"
 
 # 启动 TellhowTraffic（端口10065）
@@ -142,7 +142,7 @@ echo "$BACKEND_PID" > logs/backend.pid
 echo "$MMI_PID" > logs/mmiiot_frontend.pid
 echo "$ADMIN_PID" > logs/admin_frontend.pid
 echo "$FMS_PID" > logs/lenovofms.pid
-echo "$PLM_PID" > logs/lenonoplm.pid
+echo "$PLM_PID" > logs/lenovoplm.pid
 echo "$TRAFFIC_PID" > logs/tellhowtraffic.pid
 
 echo -e "${BLUE}========================================${NC}"
@@ -152,7 +152,7 @@ echo ""
 echo "展示前端: http://${DEPLOY_IP}:10061"
 echo "管理前端: http://${DEPLOY_IP}:10062"
 echo "LenovoFMS: http://${DEPLOY_IP}:10063"
-echo "LenonoPLM: http://${DEPLOY_IP}:10064"
+echo "LenovoPLM: http://${DEPLOY_IP}:10064"
 echo "TellhowTraffic: http://${DEPLOY_IP}:10065"
 echo "后端: http://${DEPLOY_IP}:10060"
 echo ""
@@ -161,7 +161,7 @@ echo "  后端: tail -f logs/backend.log"
 echo "  展示前端: tail -f logs/mmiiot_frontend.log"
 echo "  管理前端: tail -f logs/admin_frontend.log"
 echo "  LenovoFMS: tail -f logs/lenovofms.log"
-echo "  LenonoPLM: tail -f logs/lenonoplm.log"
+echo "  LenovoPLM: tail -f logs/lenovoplm.log"
 echo "  TellhowTraffic: tail -f logs/tellhowtraffic.log"
 echo ""
 echo "停止服务: ./stop.sh"

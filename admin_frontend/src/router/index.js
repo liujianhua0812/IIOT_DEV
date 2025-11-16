@@ -25,6 +25,11 @@ const routes = [
         component: () => import('../views/admin/DeviceManagementView.vue'),
       },
       {
+        path: 'device-types',
+        name: 'device-types',
+        component: () => import('../views/admin/DeviceTypeManagementView.vue'),
+      },
+      {
         path: 'models',
         name: 'models',
         component: () => import('../views/admin/ModelManagementView.vue'),

@@ -30,7 +30,7 @@
   - 展示前端：http://localhost:10061 / http://166.111.80.127:10061
   - 管理前端：http://localhost:10062 / http://166.111.80.127:10062
   - LenovoFMS：http://localhost:10063 / http://166.111.80.127:10063
-  - LenonoPLM：http://localhost:10064 / http://166.111.80.127:10064
+  - LenovoPLM：http://localhost:10064 / http://166.111.80.127:10064
   - TellhowTraffic：http://localhost:10065 / http://166.111.80.127:10065
 
 ## 项目结构
@@ -46,7 +46,7 @@ MMIIoT/
 ├── LenovoFMS/         # 联想设备管理系统
 │   ├── src/
 │   └── package.json
-├── LenonoPLM/         # 联想产品生命周期管理
+├── LenovoPLM/         # 联想产品生命周期管理
 │   ├── src/
 │   └── package.json
 ├── TellhowTraffic/    # 泰豪交通管理系统
@@ -98,7 +98,7 @@ MMIIoT/
 | 展示前端 | localhost:10061 | 166.111.80.127:10061 |
 | 管理前端 | localhost:10062 | 166.111.80.127:10062 |
 | LenovoFMS | localhost:10063 | 166.111.80.127:10063 |
-| LenonoPLM | localhost:10064 | 166.111.80.127:10064 |
+| LenovoPLM | localhost:10064 | 166.111.80.127:10064 |
 | TellhowTraffic | localhost:10065 | 166.111.80.127:10065 |
 | CORS | 允许所有来源 | 限制来源 |
 | Debug | 启用 | 关闭 |
