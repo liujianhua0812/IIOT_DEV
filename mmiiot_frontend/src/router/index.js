@@ -37,6 +37,21 @@ const routes = [
     component: () => import('../views/SchedulingView.vue'),
   },
   {
+    path: '/ddos-check',
+    name: 'ddos-check',
+    component: () => import('../views/DdosCheckView.vue'),
+  },
+  {
+    path: '/ddos/system-status',
+    name: 'ddos-system-status',
+    component: () => import('../views/DdosSystemStatusView.vue'),
+  },
+  {
+    path: '/ddos/device-monitor',
+    name: 'ddos-device-monitor',
+    component: () => import('../views/DdosDeviceMonitorView.vue'),
+  },
+  {
     path: '/demo/lianxiang',
     name: 'demo-lianxiang',
     component: () => import('../views/LianxiangDemoView.vue'),

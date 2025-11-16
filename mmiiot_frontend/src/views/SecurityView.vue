@@ -23,6 +23,14 @@
         <h3>可信审计</h3>
         <p>分布式审计账本，全链路可追溯，确保安全策略可验证、可证明。</p>
       </article>
+      <article class="card radar">
+        <h2>DDoS检测</h2>
+        <p>进入检测中枢页面，查看实时威胁、攻击链溯源与自动处置编排。</p>
+        <div class="chip-group">
+          <RouterLink class="chip chip-link" :to="{ name: 'ddos-system-status' }">系统状态</RouterLink>
+          <RouterLink class="chip chip-link" :to="{ name: 'ddos-device-monitor' }">设备监控</RouterLink>
+        </div>
+      </article>
     </section>
   </div>
 </template>
@@ -92,6 +100,31 @@
 .radar {
   background: linear-gradient(135deg, rgba(14, 54, 88, 0.95), rgba(4, 28, 48, 0.9));
   border: 1px solid rgba(73, 197, 255, 0.28);
+}
+.clickable {
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 28px 56px rgba(0, 0, 0, 0.42);
+}
+.link-reset {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.link-reset:focus-visible {
+  outline: 2px solid rgba(73, 197, 255, 0.6);
+  outline-offset: 4px;
+}
+.chip-link {
+  text-decoration: none;
+  color: inherit;
+  display: inline-block;
+}
+.chip-link:hover {
+  background: rgba(128, 214, 255, 0.18);
 }
 </style>
 
