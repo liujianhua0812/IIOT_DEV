@@ -11,6 +11,11 @@ export const fetchHomeDeployments = () => apiClient.get('/api/home/deployments')
 
 export const fetchDevices = (params = {}) => apiClient.get('/api/devices', { params })
 
+// 地图和设备相关 API（TellhowTraffic 使用相对路径）
+export const fetchIntersections = (params = {}) => apiClient.get('/intersections', { params })
+export const fetchMapDevices = (params = {}) => apiClient.get('/map/devices', { params })
+export const fetchDeviceVideoStream = (deviceId) => apiClient.get(`/video-streams/device/${deviceId}`)
+
 export const fetchChinaGeoJson = () => apiClient.get('/api/map/china-geojson')
 
 export const login = (credentials) => apiClient.post('/api/auth/login', credentials)

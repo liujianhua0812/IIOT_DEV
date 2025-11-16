@@ -69,7 +69,8 @@ import {
   Expand,
   Fold,
   ArrowDown,
-  Grid
+  Grid,
+  Connection
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -81,6 +82,7 @@ const isCollapse = ref(false)
 const menuItems = [
   { label: '设备管理', name: 'devices', iconComponent: Monitor },
   { label: '设备类型', name: 'device-types', iconComponent: Grid },
+  { label: '网络拓扑', name: 'topology', iconComponent: Connection },
   { label: '模型管理', name: 'models', iconComponent: Setting },
   { label: '任务管理', name: 'tasks', iconComponent: Document },
 ]

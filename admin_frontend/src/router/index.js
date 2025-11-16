@@ -40,6 +40,11 @@ const routes = [
         component: () => import('../views/admin/TaskManagementView.vue'),
       },
       {
+        path: 'topology',
+        name: 'topology',
+        component: () => import('../views/admin/TopologyManagementView.vue'),
+      },
+      {
         path: 'profile',
         name: 'profile',
         component: () => import('../views/admin/ProfileView.vue'),

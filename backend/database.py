@@ -156,7 +156,7 @@ class Device(Base):
     description = Column(Text, nullable=True, comment="设备描述")
     last_heartbeat = Column(DateTime, nullable=True, comment="最后心跳时间")
     created_at = Column(DateTime, nullable=True, comment="创建时间")
-    updated_at = Column(DateTime, nullable=True, comment="更新时间")
+    updated_at = Column(DateTime, nullable=True, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
 
     # 关联关系
     device_type = relationship("DeviceType", back_populates="devices")
@@ -317,6 +317,49 @@ class DeviceTopology(Base):
 
     def __repr__(self):
         return f"<DeviceTopology(id={self.id}, source='{self.source_device_code}', target='{self.target_device_code}')>"
+
+
+class VideoStream(Base):
+    """视频流表"""
+    __tablename__ = "video_streams"
+
+    id = Column(Integer, primary_key=True, index=True, comment="视频流ID")
+    device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), nullable=False, comment="设备ID")
+    stream_name = Column(String(200), nullable=False, comment="流名称")
+    stream_url = Column(String(500), nullable=True, comment="流URL（RTSP/HTTP/HLS等）")
+    file_path = Column(String(500), nullable=True, comment="视频文件路径")
+    stream_type = Column(String(50), nullable=True, default="file", comment="流类型: file/rtsp/http/hls")
+    status = Column(String(20), nullable=True, default="active", comment="状态: active/inactive")
+    resolution = Column(String(50), nullable=True, comment="分辨率")
+    bitrate = Column(Integer, nullable=True, comment="码率(kbps)")
+    fps = Column(Integer, nullable=True, comment="帧率")
+    description = Column(Text, nullable=True, comment="描述")
+    created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
+
+    # 关联关系
+    device = relationship("Device", backref="video_streams")
+
+    def to_dict(self):
+        """转换为字典格式"""
+        return {
+            "id": self.id,
+            "device_id": self.device_id,
+            "stream_name": self.stream_name,
+            "stream_url": self.stream_url,
+            "file_path": self.file_path,
+            "stream_type": self.stream_type,
+            "status": self.status,
+            "resolution": self.resolution,
+            "bitrate": self.bitrate,
+            "fps": self.fps,
+            "description": self.description,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    def __repr__(self):
+        return f"<VideoStream(id={self.id}, device_id={self.device_id}, stream_name='{self.stream_name}')>"
 
 
 def init_db():
