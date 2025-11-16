@@ -15,8 +15,8 @@
           <div class="system-image-container">
             <img src="/tellhow_traffic.webp" alt="Tellhow Traffic" class="system-image" />
           </div>
-          <h3>Tellhow Traffic</h3>
-          <p>泰豪交通管理系统</p>
+          <h3>泰豪交通管理系统</h3>
+          <p>湘潭市智能交通管理系统</p>
           <div class="system-link">
             <span>访问系统</span>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
