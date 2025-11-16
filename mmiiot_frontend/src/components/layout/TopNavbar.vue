@@ -17,8 +17,8 @@ const menuItems = [
   { label: '模态互联', route: { name: 'modal-connectivity' } },
   { label: '内生安全', route: { name: 'security' } },
   { label: '融合调度', route: { name: 'scheduling' } },
-  { label: '联想应用示范', route: { name: 'demo-lianxiang' } },
-  { label: '泰豪应用示范', route: { name: 'demo-taihao' } },
+  { label: '联想应用示范', route: { name: 'demo-lenovo' } },
+  { label: '泰豪应用示范', route: { name: 'demo-tellhow' } },
 ]
 
 const activeName = computed(() => route.name)

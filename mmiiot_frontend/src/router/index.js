@@ -37,13 +37,13 @@ const routes = [
     component: () => import('../views/SchedulingView.vue'),
   },
   {
-    path: '/demo/lianxiang',
-    name: 'demo-lianxiang',
+    path: '/demo/lenovo',
+    name: 'demo-lenovo',
     component: () => import('../views/LianxiangDemoView.vue'),
   },
   {
-    path: '/demo/taihao',
-    name: 'demo-taihao',
+    path: '/demo/tellhow',
+    name: 'demo-tellhow',
     component: () => import('../views/TaihaoDemoView.vue'),
   },
 ]

@@ -723,25 +723,9 @@ const handleVideoLoadedData = () => {
 
 <template>
   <div class="home-view">
-    <section class="hero">
-      <div class="hero-content">
-        <h1>构建可信、敏捷的多模态工业互联</h1>
-        <p>
-          聚焦多模态感知、内生安全与智能调度，打造一体化的工业互联网中枢。实时掌握设备态势，跨模态协同运行，赋能产业数字化升级。
-        </p>
-        <div class="hero-actions">
-          <button class="primary" @click="router.push({ name: 'login' })">立即登录</button>
-          <button class="secondary">查看方案白皮书</button>
-        </div>
-      </div>
-      <div class="hero-visual">
-        <div class="pulse"></div>
-        <div class="orb"></div>
-        <div class="grid"></div>
-      </div>
-    </section>
+   
 
-    <MetricsGrid :metrics="metrics" />
+   
 
     <!-- 地图可视化区域 -->
     <section class="map-section">
@@ -898,7 +882,7 @@ const handleVideoLoadedData = () => {
         </div>
       </div>
     </div>
-
+    <MetricsGrid :metrics="metrics" />
     <section v-if="loading && !map" class="loading">数据加载中...</section>
     <section v-if="errorMessage" class="error">{{ errorMessage }}</section>
   </div>
