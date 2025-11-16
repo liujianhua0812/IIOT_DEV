@@ -3,7 +3,8 @@ import requests
 import secrets
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from database import get_db, Device, User
+from database import get_db, Device, User, DeviceType, DeviceTypeParameter, DeviceParameterValue
+from sqlalchemy.orm import joinedload
 from config import MODE
 
 # 简单的 token 存储（生产环境应使用 Redis 或数据库）
@@ -16,7 +17,7 @@ def create_app() -> Flask:
     # 根据运行模式配置 CORS
     if MODE == "production":
         # 部署模式：限制跨域来源
-        default_origins = "http://166.111.80.127:10061,http://localhost:10061"
+        default_origins = "http://166.111.80.127:10061,http://166.111.80.127:10062,http://localhost:10061,http://localhost:10062"
         allowed_origins = os.getenv("CORS_ORIGINS", default_origins).split(",")
         # 清理空白字符
         allowed_origins = [origin.strip() for origin in allowed_origins if origin.strip()]
@@ -24,17 +25,33 @@ def create_app() -> Flask:
              resources={
                  r"/api/*": {
                      "origins": allowed_origins,
-                     "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-                     "allow_headers": ["Content-Type", "Authorization"],
-                     "supports_credentials": True
+                     "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+                     "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+                     "expose_headers": ["Content-Type"],
+                     "supports_credentials": True,
+                     "max_age": 3600
                  },
                  r"/health": {"origins": "*"}
              },
-             supports_credentials=True)
+             supports_credentials=True,
+             automatic_options=True)
         print(f"CORS 允许的来源: {allowed_origins}")
     else:
-        # 开发模式：允许所有来源
-        CORS(app, resources={r"/api/*": {"origins": "*"}, r"/health": {"origins": "*"}})
+        # 开发模式：允许所有来源，包括 admin_frontend 的端口
+        CORS(app, 
+             resources={
+                 r"/api/*": {
+                     "origins": "*",
+                     "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+                     "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+                     "expose_headers": ["Content-Type"],
+                     "supports_credentials": True,
+                     "max_age": 3600
+                 },
+                 r"/health": {"origins": "*"}
+             },
+             supports_credentials=True,
+             automatic_options=True)
 
     register_routes(app)
 
@@ -103,8 +120,12 @@ def register_routes(app: Flask) -> None:
             status = request.args.get("status", None, type=str)
             search = request.args.get("search", None, type=str)
 
-            # 构建查询
-            query = db.query(Device)
+            # 构建查询，预加载关联数据
+            query = db.query(Device).options(
+                joinedload(Device.parameter_values),
+                joinedload(Device.device_type),
+                joinedload(Device.application)
+            )
 
             # 状态筛选
             if status:
@@ -116,7 +137,7 @@ def register_routes(app: Flask) -> None:
                     (Device.name.ilike(f"%{search}%")) | (Device.code.ilike(f"%{search}%"))
                 )
 
-            # 获取总数
+            # 获取总数（需要先克隆查询以避免影响分页）
             total = query.count()
 
             # 分页
@@ -137,6 +158,185 @@ def register_routes(app: Flask) -> None:
             return jsonify({"error": str(e)}), 500
         finally:
             db.close()
+
+    @app.get("/api/devices/<int:device_id>")
+    def get_device(device_id):
+        """获取单个设备详情"""
+        try:
+            db = next(get_db())
+            device = db.query(Device).options(
+                joinedload(Device.parameter_values),
+                joinedload(Device.device_type).joinedload(DeviceType.parameters),
+                joinedload(Device.application)
+            ).filter(Device.id == device_id).first()
+            
+            if not device:
+                return jsonify({"error": "设备不存在"}), 404
+            
+            return jsonify({"device": device.to_dict(include_parameters=True)}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+        finally:
+            if 'db' in locals():
+                db.close()
+
+    @app.put("/api/devices/<int:device_id>")
+    def update_device(device_id):
+        """更新设备信息"""
+        try:
+            data = request.get_json()
+            print(f"收到更新设备 {device_id} 的请求，数据: {data}")
+            db = next(get_db())
+            
+            device = db.query(Device).options(
+                joinedload(Device.parameter_values),
+                joinedload(Device.device_type).joinedload(DeviceType.parameters)
+            ).filter(Device.id == device_id).first()
+            
+            if not device:
+                return jsonify({"error": "设备不存在"}), 404
+            
+            print(f"设备信息: id={device.id}, name={device.name}, device_type_id={device.device_type_id}")
+            if device.device_type:
+                print(f"设备类型: {device.device_type.name}, 参数数量: {len(device.device_type.parameters)}")
+            else:
+                print("设备没有关联设备类型")
+            
+            # 更新设备基本信息
+            if "name" in data:
+                device.name = data["name"]
+            if "code" in data:
+                device.code = data["code"]
+            if "device_type_id" in data:
+                device.device_type_id = data["device_type_id"]
+            if "application_id" in data:
+                device.application_id = data.get("application_id")
+            if "position_x" in data:
+                device.position_x = data.get("position_x")
+            if "position_y" in data:
+                device.position_y = data.get("position_y")
+            if "serial_number" in data:
+                device.serial_number = data.get("serial_number")
+            if "longitude" in data:
+                device.longitude = data.get("longitude")
+            if "latitude" in data:
+                device.latitude = data.get("latitude")
+            if "status" in data:
+                device.status = data.get("status")
+            if "health_status" in data:
+                device.health_status = data.get("health_status")
+            if "description" in data:
+                device.description = data.get("description")
+            
+            # 更新参数值
+            existing_params = {}
+            if "parameters" in data:
+                print(f"准备更新参数值: {data['parameters']}")
+                # 如果设备类型被更新了，需要重新加载设备类型
+                if "device_type_id" in data:
+                    db.refresh(device)
+                    device = db.query(Device).options(
+                        joinedload(Device.parameter_values),
+                        joinedload(Device.device_type).joinedload(DeviceType.parameters)
+                    ).filter(Device.id == device_id).first()
+                
+                if not device.device_type:
+                    error_msg = "设备没有关联设备类型，无法更新参数值"
+                    print(f"错误: {error_msg}")
+                    return jsonify({"error": error_msg}), 400
+                
+                # 获取设备类型的所有参数定义
+                if not device.device_type.parameters:
+                    error_msg = "设备类型没有定义参数"
+                    print(f"错误: {error_msg}")
+                    return jsonify({"error": error_msg}), 400
+                
+                param_definitions = {p.param_key: p for p in device.device_type.parameters}
+                
+                # 查询现有的参数值（直接从数据库查询，确保获取最新数据）
+                existing_params_query = db.query(DeviceParameterValue).filter(
+                    DeviceParameterValue.device_id == device.id
+                ).all()
+                existing_params = {pv.param_key: pv for pv in existing_params_query}
+                
+                for param_key, param_value in data["parameters"].items():
+                    if param_key not in param_definitions:
+                        # 跳过不在设备类型参数定义中的参数
+                        continue
+                    
+                    param_def = param_definitions[param_key]
+                    
+                    # 转换参数值
+                    try:
+                        if param_value is None:
+                            str_value = None
+                        elif param_def.param_type == 'boolean':
+                            str_value = 'true' if param_value else 'false'
+                        elif param_def.param_type == 'date':
+                            if isinstance(param_value, str):
+                                str_value = param_value
+                            else:
+                                str_value = str(param_value) if param_value is not None else None
+                        elif param_def.param_type == 'number':
+                            if param_value is None or param_value == '':
+                                str_value = None
+                            else:
+                                str_value = str(param_value)
+                        else:
+                            str_value = str(param_value) if param_value is not None else None
+                    except Exception as e:
+                        error_msg = f"参数 {param_key} 值转换失败: {str(e)}"
+                        print(f"错误: {error_msg}, 参数值: {param_value}, 类型: {type(param_value)}")
+                        return jsonify({"error": error_msg}), 400
+                    
+                    # 查找或创建参数值
+                    if param_key in existing_params:
+                        # 更新现有参数值
+                        param_value_obj = existing_params[param_key]
+                        param_value_obj.param_value = str_value
+                        # 手动触发 updated_at 更新
+                        from datetime import datetime
+                        param_value_obj.updated_at = datetime.utcnow()
+                    else:
+                        # 创建新参数值
+                        param_value_obj = DeviceParameterValue(
+                            device_id=device.id,
+                            parameter_id=param_def.id,
+                            param_key=param_key,
+                            param_value=str_value
+                        )
+                        db.add(param_value_obj)
+                        existing_params[param_key] = param_value_obj
+            
+            db.commit()
+            # 重新加载设备及其关联数据以确保获取最新数据
+            db.refresh(device)
+            # 刷新所有参数值对象（如果存在）
+            if existing_params:
+                for pv in existing_params.values():
+                    db.refresh(pv)
+            # 重新查询设备以获取完整的关联数据
+            device = db.query(Device).options(
+                joinedload(Device.parameter_values),
+                joinedload(Device.device_type).joinedload(DeviceType.parameters),
+                joinedload(Device.application)
+            ).filter(Device.id == device_id).first()
+            
+            return jsonify({
+                "message": "设备更新成功",
+                "device": device.to_dict(include_parameters=True)
+            }), 200
+        except Exception as e:
+            if 'db' in locals():
+                db.rollback()
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"更新设备失败: {str(e)}")
+            print(error_trace)
+            return jsonify({"error": str(e), "traceback": error_trace}), 500
+        finally:
+            if 'db' in locals():
+                db.close()
 
     @app.get("/api/map/china-geojson")
     def get_china_geojson():
@@ -350,6 +550,162 @@ def register_routes(app: Flask) -> None:
             return jsonify({"message": f"更新用户信息失败: {str(e)}"}), 500
         finally:
             db.close()
+
+    # ========== 设备类型管理 API ==========
+    @app.get("/api/device-types")
+    def get_device_types():
+        """获取设备类型列表"""
+        try:
+            db = next(get_db())
+            device_types = db.query(DeviceType).all()
+            result = [dt.to_dict() for dt in device_types]
+            return jsonify({"device_types": result}), 200
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"获取设备类型失败: {str(e)}")
+            print(error_trace)
+            return jsonify({"error": str(e), "traceback": error_trace}), 500
+        finally:
+            if 'db' in locals():
+                db.close()
+
+    @app.post("/api/device-types")
+    def create_device_type():
+        """创建设备类型"""
+        try:
+            data = request.get_json()
+            db = next(get_db())
+            
+            # 验证必填字段
+            if not data.get("name") or not data.get("code"):
+                return jsonify({"error": "设备类型名称和代码为必填项"}), 400
+            
+            # 检查代码是否已存在
+            existing = db.query(DeviceType).filter(DeviceType.code == data["code"]).first()
+            if existing:
+                return jsonify({"error": f"设备类型代码 '{data['code']}' 已存在"}), 400
+            
+            # 创建设备类型
+            device_type = DeviceType(
+                code=data["code"],
+                name=data["name"],
+                description=data.get("description", "")
+            )
+            db.add(device_type)
+            db.flush()  # 获取 device_type.id
+            
+            # 创建参数
+            if data.get("parameters"):
+                for index, param_data in enumerate(data["parameters"]):
+                    if param_data.get("name") and param_data.get("key"):
+                        param = DeviceTypeParameter(
+                            device_type_id=device_type.id,
+                            param_key=param_data["key"],
+                            param_name=param_data["name"],
+                            param_type=param_data.get("type", "string"),
+                            required=param_data.get("required", False),
+                            default_value=param_data.get("default_value"),
+                            sort_order=param_data.get("sort_order", index)
+                        )
+                        db.add(param)
+            
+            db.commit()
+            db.refresh(device_type)
+            
+            return jsonify({
+                "message": "设备类型创建成功",
+                "device_type": device_type.to_dict()
+            }), 201
+        except Exception as e:
+            db.rollback()
+            return jsonify({"error": str(e)}), 500
+        finally:
+            if 'db' in locals():
+                db.close()
+
+    @app.put("/api/device-types/<int:device_type_id>")
+    def update_device_type(device_type_id):
+        """更新设备类型"""
+        try:
+            data = request.get_json()
+            db = next(get_db())
+            
+            device_type = db.query(DeviceType).filter(DeviceType.id == device_type_id).first()
+            if not device_type:
+                return jsonify({"error": "设备类型不存在"}), 404
+            
+            # 更新基本信息
+            if "name" in data:
+                device_type.name = data["name"]
+            if "description" in data:
+                device_type.description = data.get("description", "")
+            
+            # 更新参数（删除旧参数，添加新参数）
+            if "parameters" in data:
+                # 删除旧参数
+                db.query(DeviceTypeParameter).filter(
+                    DeviceTypeParameter.device_type_id == device_type_id
+                ).delete()
+                
+                # 添加新参数
+                for index, param_data in enumerate(data["parameters"]):
+                    if param_data.get("name") and param_data.get("key"):
+                        param = DeviceTypeParameter(
+                            device_type_id=device_type_id,
+                            param_key=param_data["key"],
+                            param_name=param_data["name"],
+                            param_type=param_data.get("type", "string"),
+                            required=param_data.get("required", False),
+                            default_value=param_data.get("default_value"),
+                            sort_order=param_data.get("sort_order", index)
+                        )
+                        db.add(param)
+            
+            db.commit()
+            db.refresh(device_type)
+            
+            return jsonify({
+                "message": "设备类型更新成功",
+                "device_type": device_type.to_dict()
+            }), 200
+        except Exception as e:
+            db.rollback()
+            return jsonify({"error": str(e)}), 500
+        finally:
+            if 'db' in locals():
+                db.close()
+
+    @app.delete("/api/device-types/<int:device_type_id>")
+    def delete_device_type(device_type_id):
+        """删除设备类型"""
+        try:
+            db = next(get_db())
+            
+            device_type = db.query(DeviceType).filter(DeviceType.id == device_type_id).first()
+            if not device_type:
+                return jsonify({"error": "设备类型不存在"}), 404
+            
+            # 检查是否有设备使用该类型
+            device_count = db.query(Device).filter(Device.device_type_id == device_type_id).count()
+            if device_count > 0:
+                return jsonify({
+                    "error": f"无法删除：有 {device_count} 个设备正在使用此类型"
+                }), 400
+            
+            # 删除设备类型（级联删除参数）
+            db.delete(device_type)
+            db.commit()
+            
+            return jsonify({
+                "message": "设备类型删除成功"
+            }), 200
+        except Exception as e:
+            db.rollback()
+            return jsonify({"error": str(e)}), 500
+        finally:
+            if 'db' in locals():
+                db.close()
 
 
 app = create_app()
