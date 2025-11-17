@@ -235,6 +235,8 @@ async function clearBlacklist() {
   }
 }
 async function configureBasic() {
+  const ok = window.confirm('确定要配置初级防御吗？这将执行：\n1. 重置防御阈值\n2. 重放良性流量\n3. 设置速率参数')
+  if (!ok) return
   showAlert('info', '⏳ 正在配置', '初级防御配置中，请稍候...')
   try {
     const res = await fetch(`${API_BASE}/primary_defense`, { method: 'POST' })
