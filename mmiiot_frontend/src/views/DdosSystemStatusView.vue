@@ -28,10 +28,10 @@
         <h2>📊 系统状态</h2>
         <ul class="stats">
           <li><span class="label">运行时间</span><span class="value">{{ formattedUptime }}</span></li>
-          <li><span class="label">总处理流量</span><span class="value">{{ totalTraffic }} GB</span></li>
-          <li><span class="label">良性流量</span><span class="value success">{{ benignTraffic }} GB</span></li>
-          <li><span class="label">攻击流量</span><span class="value danger">{{ attackTraffic }} GB</span></li>
-          <li><span class="label">活跃流数</span><span class="value">{{ activeFlows }}</span></li>
+          <li><span class="label">总处理流量序列</span><span class="value">{{ totalTraffic }} 条</span></li>
+          <li><span class="label">良性流量记录</span><span class="value success">{{ benignTraffic }} 条</span></li>
+          <li><span class="label">攻击流量记录</span><span class="value danger">{{ attackTraffic }} 条</span></li>
+          <li><span class="label">活跃流量记录</span><span class="value">{{ activeFlows }} 条</span></li>
           <li class="mode">
             <span class="label">检测模式</span>
             <span class="value">
@@ -48,7 +48,7 @@
           <button class="action btn btn-grad btn-primary" @click="configureBasic">🔧 配置初级防御</button>
           <button class="action btn btn-grad btn-success" @click="enableDetect">✅ 启用检测模式</button>
           <button class="action btn btn-grad btn-warning" @click="disableDetect">⏸️ 禁用检测模式</button>
-          <button class="action btn btn-grad btn-danger" @click="clearBlacklist">🗑️ 清空黑名单</button>
+          <!-- <button class="action btn btn-grad btn-danger" @click="clearBlacklist">🗑️ 清空黑名单</button> -->
         </div>
         <p class="hint">先配置初始化防御，再启用检测模式</p>
       </article>
@@ -82,25 +82,21 @@ function goBack() {
   router.push({ name: 'security' })
 }
 
-const startTime = Date.now()
-const uptimeSeconds = ref(0)
-let timerId
+// 使用后端返回的 uptime_minutes 直接展示
+const uptimeMinutes = ref(0)
+
 onMounted(() => {
-  timerId = setInterval(() => {
-    uptimeSeconds.value = Math.floor((Date.now() - startTime) / 1000)
-  }, 1000)
   boot()
 })
 onUnmounted(() => {
-  if (timerId) clearInterval(timerId)
+  // 仅清理轮询定时器数组
   clearAllIntervals()
 })
 
+// formattedUptime 直接显示 uptime_minutes（无需前端再计算秒数）
 const formattedUptime = computed(() => {
-  const s = uptimeSeconds.value
-  const minutes = Math.floor(s / 60)
-  const seconds = s % 60
-  return `${minutes}.${seconds}分钟`
+  // 保留1位小数
+  return `${uptimeMinutes.value.toFixed(1)} 分钟`
 })
 
 const totalTraffic = ref(0)
@@ -145,7 +141,7 @@ function handleAlert(data) {
 }
 
 // API + Polling
-const API_BASE = 'http://localhost:5000/api'
+const API_BASE = 'http://localhost:12345/api'
 const pollers = []
 function clearAllIntervals() {
   while (pollers.length) {
@@ -158,7 +154,8 @@ async function updateStatus() {
     const res = await fetch(`${API_BASE}/status`)
     const data = await res.json()
     const uptimeMin = Number(data.uptime_minutes ?? 0)
-    uptimeSeconds.value = Math.floor(uptimeMin * 60)
+    // 直接使用后端返回的分钟数
+    uptimeMinutes.value = uptimeMin
     totalTraffic.value = Number(data.total_processed ?? 0)
     benignTraffic.value = Number(data.benign_flows ?? 0)
     attackTraffic.value = Number(data.ddos_flows ?? 0)
@@ -263,7 +260,7 @@ async function boot() {
     await loadSocketIo()
   }
   if (window && window.io) {
-    const socket = window.io('http://localhost:5000')
+    const socket = window.io('http://localhost:12345')
     socket.on('connect', () => {
       showAlert('info', '系统连接', '已成功连接到DDoS控制器')
     })
