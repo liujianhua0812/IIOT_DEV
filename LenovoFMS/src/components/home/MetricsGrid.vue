@@ -8,7 +8,16 @@ const props = defineProps({
   },
 })
 
+const adminBaseURL = import.meta.env.VITE_ADMIN_BASE_URL || 'http://localhost:10062'
+
 const metricsList = computed(() => [
+  {
+    key: 'labelTypes',
+    label: '标签类型',
+    unit: '种',
+    gradient: 'linear-gradient(135deg, #7f7bff, #5fd4ff)',
+    clickable: true,
+  },
   {
     key: 'deviceCount',
     label: '接入设备数',
@@ -34,11 +43,23 @@ const metricsList = computed(() => [
     gradient: 'linear-gradient(135deg, #84fab0, #8fd3f4)',
   },
 ])
+
+const handleCardClick = (item) => {
+  if (item.clickable && item.key === 'labelTypes') {
+    window.open(`${adminBaseURL}/label-types`, '_blank', 'noopener')
+  }
+}
 </script>
 
 <template>
   <section class="metrics-grid">
-    <article v-for="item in metricsList" :key="item.key" class="metric-card">
+    <article
+      v-for="item in metricsList"
+      :key="item.key"
+      class="metric-card"
+      :class="{ clickable: item.clickable }"
+      @click="handleCardClick(item)"
+    >
       <div class="metric-header" :style="{ backgroundImage: item.gradient }"></div>
       <div class="metric-body">
         <span class="metric-label">{{ item.label }}</span>
@@ -67,6 +88,16 @@ const metricsList = computed(() => [
   border: 1px solid rgba(88, 178, 255, 0.08);
   box-shadow: 0 18px 36px rgba(0, 0, 0, 0.25);
   backdrop-filter: blur(14px);
+}
+
+.metric-card.clickable {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.metric-card.clickable:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 22px 40px rgba(0, 0, 0, 0.35);
 }
 
 .metric-header {

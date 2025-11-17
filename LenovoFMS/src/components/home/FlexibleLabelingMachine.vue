@@ -692,6 +692,17 @@ const closeDeviceInfo = () => {
                 preserveAspectRatio="xMidYMid meet"
                 opacity="0.8"
               />
+              <!-- 机械臂贴图 -->
+              <image
+                href="/robot-arm.png"
+                x="570"
+                y="265"
+                width="80"
+                height="80"
+                preserveAspectRatio="xMidYMid meet"
+                opacity="0.95"
+                filter="url(#shadow)"
+              />
               <!-- 连接线（从取标签区到贴标区） -->
               <path
                 d="M 560 330 Q 560 270 500 250"

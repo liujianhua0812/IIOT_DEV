@@ -1,11 +1,27 @@
 import os
+import mimetypes
+import uuid
 import requests
 import secrets
 from flask import Flask, jsonify, request, Response, send_file
 from flask_cors import CORS
-from database import get_db, Device, User, DeviceType, DeviceTypeParameter, DeviceParameterValue, Application, DeviceTopology, VideoStream
+from werkzeug.utils import secure_filename
+from database import (
+    get_db,
+    Device,
+    User,
+    DeviceType,
+    DeviceTypeParameter,
+    DeviceParameterValue,
+    Application,
+    DeviceTopology,
+    VideoStream,
+    LaptopLabelType,
+)
 from sqlalchemy.orm import joinedload
 from config import MODE
+
+ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "svg", "webp"}
 
 # 简单的 token 存储（生产环境应使用 Redis 或数据库）
 token_store = {}
@@ -129,13 +145,54 @@ def register_routes(app: Flask) -> None:
 
     @app.get("/api/home/overview")
     def home_overview():
-        overview = {
-            "deviceCount": 1864,
-            "modalTypes": 12,
-            "securityEvents": 327,
-            "dispatchTasks": 95,
-        }
-        return jsonify(overview)
+        db = next(get_db())
+        try:
+            application = (
+                db.query(Application)
+                .filter(
+                    (Application.english_name == 'LenovoFMS') |
+                    (Application.name == 'LenovoFMS') |
+                    (Application.name.like('%LenovoFMS%'))
+                )
+                .order_by(Application.id.asc())
+                .first()
+            )
+
+            device_count = 0
+            label_type_query = db.query(LaptopLabelType)
+            label_type_count = 0
+
+            if application:
+                device_count = (
+                    db.query(Device)
+                    .filter(Device.application_id == application.id)
+                    .count()
+                )
+                label_type_count = (
+                    label_type_query
+                    .filter(
+                        (LaptopLabelType.application_id == application.id) |
+                        (LaptopLabelType.application_id.is_(None))
+                    )
+                    .count()
+                )
+            else:
+                label_type_count = label_type_query.count()
+
+            overview = {
+                "labelTypes": label_type_count,
+                "deviceCount": device_count,
+                "modalTypes": 12,
+                "securityEvents": 327,
+                "dispatchTasks": 95,
+            }
+            return jsonify(overview)
+        except Exception as e:
+            import traceback
+
+            error_trace = traceback.format_exc()
+            print(error_trace)
+            return jsonify({"error": str(e), "traceback": error_trace}), 500
 
     @app.get("/api/home/deployments")
     def home_deployments():
@@ -1262,6 +1319,205 @@ def register_routes(app: Flask) -> None:
         finally:
             if 'db' in locals():
                 db.close()
+
+    # ========== 标签类型管理 API ==========
+    @app.get("/api/laptop-label-types")
+    def get_laptop_label_types():
+        """获取标签类型列表"""
+        db = next(get_db())
+        try:
+            application_id = request.args.get("application_id", type=int)
+            query = db.query(LaptopLabelType)
+            if application_id:
+                query = query.filter(
+                    (LaptopLabelType.application_id == application_id)
+                    | (LaptopLabelType.application_id.is_(None))
+                )
+            label_types = query.order_by(LaptopLabelType.id.asc()).all()
+            return jsonify({
+                "label_types": [lt.to_dict() for lt in label_types]
+            }), 200
+        except Exception as e:
+            import traceback
+
+            error_trace = traceback.format_exc()
+            print(error_trace)
+            return jsonify({"error": str(e), "traceback": error_trace}), 500
+        finally:
+            db.close()
+
+    @app.post("/api/laptop-label-types")
+    def create_laptop_label_type():
+        """新增标签类型"""
+        db = next(get_db())
+        try:
+            data = request.get_json() or {}
+            name = data.get("name")
+            label_type = data.get("label_type")
+
+            if not name or not label_type:
+                return jsonify({"error": "标签名称和标签类型为必填项"}), 400
+
+            def parse_float(value):
+                if value in (None, "", []):
+                    return None
+                try:
+                    return float(value)
+                except (TypeError, ValueError):
+                    return None
+
+            label = LaptopLabelType(
+                name=name,
+                label_type=label_type,
+                length_mm=parse_float(data.get("length_mm")),
+                width_mm=parse_float(data.get("width_mm")),
+                image_path=data.get("image_path") or "./data/labels/label.png",
+                application_id=data.get("application_id"),
+                description=data.get("description", ""),
+            )
+            db.add(label)
+            db.commit()
+            db.refresh(label)
+            return jsonify({
+                "message": "标签类型创建成功",
+                "label_type": label.to_dict()
+            }), 201
+        except Exception as e:
+            db.rollback()
+            import traceback
+            error_trace = traceback.format_exc()
+            print(error_trace)
+            return jsonify({"error": str(e), "traceback": error_trace}), 500
+        finally:
+            db.close()
+
+    @app.put("/api/laptop-label-types/<int:label_type_id>")
+    def update_laptop_label_type(label_type_id):
+        """更新标签类型"""
+        db = next(get_db())
+        try:
+            data = request.get_json() or {}
+            label = db.query(LaptopLabelType).filter(LaptopLabelType.id == label_type_id).first()
+            if not label:
+                return jsonify({"error": "标签类型不存在"}), 404
+
+            def parse_float(value):
+                if value in (None, "", []):
+                    return None
+                try:
+                    return float(value)
+                except (TypeError, ValueError):
+                    return None
+
+            if "name" in data:
+                label.name = data["name"]
+            if "label_type" in data:
+                label.label_type = data["label_type"]
+            if "length_mm" in data:
+                label.length_mm = parse_float(data.get("length_mm"))
+            if "width_mm" in data:
+                label.width_mm = parse_float(data.get("width_mm"))
+            if "image_path" in data:
+                label.image_path = data.get("image_path") or "./data/labels/label.png"
+            if "application_id" in data:
+                label.application_id = data.get("application_id")
+            if "description" in data:
+                label.description = data.get("description", "")
+
+            db.commit()
+            db.refresh(label)
+            return jsonify({
+                "message": "标签类型更新成功",
+                "label_type": label.to_dict()
+            }), 200
+        except Exception as e:
+            db.rollback()
+            import traceback
+            error_trace = traceback.format_exc()
+            print(error_trace)
+            return jsonify({"error": str(e), "traceback": error_trace}), 500
+        finally:
+            db.close()
+
+    @app.delete("/api/laptop-label-types/<int:label_type_id>")
+    def delete_laptop_label_type(label_type_id):
+        """删除标签类型"""
+        db = next(get_db())
+        try:
+            label = db.query(LaptopLabelType).filter(LaptopLabelType.id == label_type_id).first()
+            if not label:
+                return jsonify({"error": "标签类型不存在"}), 404
+
+            db.delete(label)
+            db.commit()
+            return jsonify({"message": "标签类型删除成功"}), 200
+        except Exception as e:
+            db.rollback()
+            import traceback
+            error_trace = traceback.format_exc()
+            print(error_trace)
+            return jsonify({"error": str(e), "traceback": error_trace}), 500
+        finally:
+            db.close()
+
+    @app.get("/api/laptop-label-types/<int:label_type_id>/image")
+    def get_laptop_label_type_image(label_type_id):
+        """获取标签类型图片"""
+        db = next(get_db())
+        try:
+            label = db.query(LaptopLabelType).filter(LaptopLabelType.id == label_type_id).first()
+            if not label:
+                return jsonify({"error": "标签类型不存在"}), 404
+
+            image_path = label.image_path or "./data/labels/label.png"
+            base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+            if not os.path.isabs(image_path):
+                normalized = image_path.lstrip("./").lstrip("/")
+                image_path = os.path.join(base_dir, normalized)
+            image_path = os.path.abspath(image_path)
+
+            if not image_path.startswith(base_dir):
+                return jsonify({"error": "非法的文件路径"}), 400
+
+            if not os.path.exists(image_path):
+                return jsonify({"error": "图片文件不存在"}), 404
+
+            mime_type, _ = mimetypes.guess_type(image_path)
+            return send_file(image_path, mimetype=mime_type or "application/octet-stream")
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            print(error_trace)
+            return jsonify({"error": str(e), "traceback": error_trace}), 500
+        finally:
+            db.close()
+
+    @app.post("/api/laptop-label-types/upload")
+    def upload_laptop_label_type_image():
+        """上传标签类型图片"""
+        if "file" not in request.files:
+            return jsonify({"error": "未找到上传文件"}), 400
+
+        upload_file = request.files["file"]
+        if upload_file.filename == "":
+            return jsonify({"error": "请选择文件"}), 400
+
+        filename = secure_filename(upload_file.filename)
+        if "." not in filename:
+            return jsonify({"error": "文件缺少扩展名"}), 400
+        ext = filename.rsplit(".", 1)[1].lower()
+        if ext not in ALLOWED_IMAGE_EXTENSIONS:
+            return jsonify({"error": "不支持的文件类型"}), 400
+
+        upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "labels", "uploads"))
+        os.makedirs(upload_dir, exist_ok=True)
+
+        unique_name = f"{uuid.uuid4().hex}.{ext}"
+        file_path = os.path.join(upload_dir, unique_name)
+        upload_file.save(file_path)
+
+        relative_path = f"./data/labels/uploads/{unique_name}"
+        return jsonify({"message": "上传成功", "path": relative_path}), 201
 
     @app.get("/api/applications")
     def get_applications():

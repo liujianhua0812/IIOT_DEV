@@ -33,6 +33,12 @@ export const updateUserProfile = (userData) => apiClient.put('/api/auth/profile'
 // 应用管理 API
 export const fetchApplications = () => apiClient.get('/api/applications')
 
+// 标签类型管理 API
+export const fetchLabelTypes = (params = {}) => apiClient.get('/api/laptop-label-types', { params })
+export const createLabelType = (data) => apiClient.post('/api/laptop-label-types', data)
+export const updateLabelType = (id, data) => apiClient.put(`/api/laptop-label-types/${id}`, data)
+export const deleteLabelType = (id) => apiClient.delete(`/api/laptop-label-types/${id}`)
+
 // 网络拓扑管理 API
 export const fetchApplicationTopology = (applicationId) => apiClient.get(`/api/applications/${applicationId}/topology`)
 export const createTopologyConnection = (applicationId, data) => apiClient.post(`/api/applications/${applicationId}/topology`, data)

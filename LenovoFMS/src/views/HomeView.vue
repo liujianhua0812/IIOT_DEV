@@ -42,7 +42,7 @@ onMounted(() => {
 
 
     
-
+    <MetricsGrid :metrics="metrics" />
     <section class="machine-section">
       <div class="section-header">
         <h2>柔性贴标生产线</h2>
@@ -52,7 +52,7 @@ onMounted(() => {
         <FlexibleLabelingMachine />
       </div>
     </section>
-    <MetricsGrid :metrics="metrics" />
+   
     <section v-if="loading" class="loading">数据加载中...</section>
     <section v-else-if="errorMessage" class="error">{{ errorMessage }}</section>
   </div>

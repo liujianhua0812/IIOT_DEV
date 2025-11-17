@@ -251,6 +251,46 @@ class DeviceParameterValue(Base):
         }
 
 
+class LaptopLabelType(Base):
+    """笔记本贴标类型表"""
+    __tablename__ = "laptop_label_types"
+
+    id = Column(Integer, primary_key=True, index=True, comment="标签类型ID")
+    name = Column(String(200), nullable=False, comment="标签名称")
+    label_type = Column(String(100), nullable=False, comment="标签类别")
+    length_mm = Column(Float, nullable=True, comment="标签长度（mm）")
+    width_mm = Column(Float, nullable=True, comment="标签宽度（mm）")
+    image_path = Column(String(500), nullable=False, comment="标签图片路径")
+    application_id = Column(
+        Integer,
+        ForeignKey("applications.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="所属应用ID",
+    )
+    description = Column(Text, nullable=True, comment="标签描述")
+    created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
+
+    application = relationship("Application", backref="laptop_label_types")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "label_type": self.label_type,
+            "length_mm": self.length_mm,
+            "width_mm": self.width_mm,
+            "image_path": self.image_path,
+            "application_id": self.application_id,
+            "description": self.description,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    def __repr__(self):
+        return f"<LaptopLabelType(id={self.id}, name='{self.name}', label_type='{self.label_type}')>"
+
+
 class User(Base):
     """用户表"""
     __tablename__ = "users"
