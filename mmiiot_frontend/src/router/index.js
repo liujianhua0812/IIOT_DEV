@@ -46,6 +46,14 @@ const routes = [
     name: 'demo-tellhow',
     component: () => import('../views/TaihaoDemoView.vue'),
   },
+  {
+    path: '/tsn-configurator',
+    name: 'tsn-configurator',
+    component: () => import('../views/TSNConfiguratorView.vue'),
+    meta: {
+      standalone: true,
+    },
+  },
 ]
 
 const router = createRouter({
