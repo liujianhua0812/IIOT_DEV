@@ -22,11 +22,26 @@
           <h1>柔性制造产线设备模型授权推理平台</h1>
         </div>
 
+        <div class="status-bar">
+          <div class="status-card">
+            <span class="status-label">🕒 当前时间：</span>
+            <span class="status-value">{{ currentTime }}</span>
+          </div>
+          <div class="status-card">
+            <span class="status-label">📍 设备位置：</span>
+            <span class="status-value">{{ deviceLocation }}</span>
+          </div>
+          <div class="status-card">
+            <span class="status-label">🔐 模型状态：</span>
+            <span class="status-badge" :class="modelStatus">{{ modelStatus === 'decrypted' ? '已解密' : '已加密' }}</span>
+          </div>
+        </div>
+
         <!-- 设备和模型选择栏 -->
         <div class="device-model-selection">
           <div class="selection-panel">
             <div class="device-list">
-              <h3>可用设备</h3>
+              <h3>🖥️ 可用设备</h3>
               <div class="selection-content">
                 <div v-if="loadingDevices" class="loading-message">加载中...</div>
                 <div v-else-if="devices.length === 0" class="empty-message">
@@ -45,7 +60,7 @@
             </div>
             
             <div class="model-list">
-              <h3>现有模型</h3>
+              <h3>🔷 现有模型</h3>
               <div class="selection-content">
                 <div v-if="loadingModels" class="loading-message">加载中...</div>
                 <div v-else-if="models.length === 0 && currentDeviceId" class="empty-message">
@@ -73,7 +88,7 @@
             </div>
             
             <div class="authorized-models-list">
-              <h3>授权合约信息</h3>
+              <h3>📜 授权合约信息</h3>
               <div class="selection-content">
                 <div v-if="!currentDeviceId" class="empty-message">
                   请先选择设备
@@ -137,58 +152,52 @@
           </div>
         </div>
 
-        <div class="status-bar">
-          <div class="status-card">
-            <span class="status-label">当前时间：</span>
-            <span class="status-value">{{ currentTime }}</span>
-          </div>
-          <div class="status-card">
-            <span class="status-label">设备位置：</span>
-            <span class="status-value">{{ deviceLocation }}</span>
-          </div>
-          <div class="status-card">
-            <span class="status-label">模型状态：</span>
-            <span class="status-badge" :class="modelStatus">{{ modelStatus === 'decrypted' ? '已解密' : '已加密' }}</span>
-          </div>
-        </div>
-
-
-        <div class="action-section">
-          <button class="btn btn-primary" @click="decryptModel" :disabled="!canDecrypt || decrypting">
-            {{ decrypting ? '解密中...' : '解密模型' }}
-          </button>
-          <button class="btn btn-info" @click="inferenceDataset" :disabled="!canInference">
-            执行推理
-          </button>
-        </div>
-
-        <div class="verification-result" v-if="verificationResult" :class="verificationResult.type" id="verificationResult">
-          <h3 v-if="verificationResult.type === 'verifying'">验证中...</h3>
-          <h3 v-else-if="verificationResult.type === 'success'">✓ 验证通过</h3>
-          <h3 v-else>✗ 验证失败</h3>
-          <div class="verification-details">
-            <div class="verification-item" :class="{ checked: verificationResult.authorizationChecked }">
-              <span class="check-icon">{{ verificationResult.authorizationChecked ? '✓' : '' }}</span>
-              <span class="verification-label">授权合约:</span>
-              <span class="verification-message">{{ verificationResult.authorization }}</span>
+        <div class="action-verification-panel selection-panel" :class="{ 'has-content': verificationResult || showProgress || progress > 0 }">
+          <div class="top-row">
+            <div class="action-section">
+              <button class="btn btn-primary" @click="decryptModel" :disabled="!canDecrypt || decrypting">
+                {{ decrypting ? '解密中...' : '解密模型' }}
+              </button>
+              <button class="btn btn-info" @click="inferenceDataset" :disabled="!canInference">
+                执行推理
+              </button>
             </div>
-            <div class="verification-item" :class="{ checked: verificationResult.codeIntegrityChecked }">
-              <span class="check-icon">{{ verificationResult.codeIntegrityChecked ? '✓' : '' }}</span>
-              <span class="verification-label">代码完整性:</span>
-              <span class="verification-message">{{ verificationResult.codeIntegrity }}</span>
+
+            <div class="verification-result" v-if="verificationResult" :class="verificationResult.type" id="verificationResult">
+              <div class="verification-layout">
+                <div class="verification-left">
+                  <!-- 授权合约 -->
+                  <div class="verification-item" :class="{ checked: verificationResult.authorizationChecked, failed: verificationResult.authorizationFailed }">
+                    <span class="check-icon">{{ verificationResult.authorizationChecked ? '✓' : (verificationResult.authorizationFailed ? '✗' : '') }}</span>
+                    <span class="verification-label">授权合约:</span>
+                    <span class="verification-message">{{ verificationResult.authorization }}</span>
+                  </div>
+                  <!-- 代码完整性 -->
+                  <div class="verification-item" :class="{ checked: verificationResult.codeIntegrityChecked, failed: verificationResult.codeIntegrityFailed }">
+                    <span class="check-icon">{{ verificationResult.codeIntegrityChecked ? '✓' : (verificationResult.codeIntegrityFailed ? '✗' : '') }}</span>
+                    <span class="verification-label">代码完整性:</span>
+                    <span class="verification-message">{{ verificationResult.codeIntegrity }}</span>
+                  </div>
+                  <!-- 模型完整性：始终展示，根据状态显示 ✓ / ✗ / 未执行 -->
+                  <div class="verification-item" :class="{ checked: verificationResult.modelIntegrityChecked, failed: verificationResult.modelIntegrityFailed }">
+                    <span class="check-icon">{{ verificationResult.modelIntegrityChecked ? '✓' : (verificationResult.modelIntegrityFailed ? '✗' : '') }}</span>
+                    <span class="verification-label">模型完整性:</span>
+                    <span class="verification-message">{{ verificationResult.modelIntegrity }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="progress-column" v-if="progress > 0 || showProgress" id="progressSection">
+              <div class="progress-bar">
+                <div class="progress-fill" :style="{ width: progress + '%' }">{{ progress }}%</div>
+              </div>
+              <p class="progress-text">{{ uiProgressText }}</p>
             </div>
           </div>
         </div>
 
-        <div class="progress-section" v-if="showProgress" id="progressSection">
-          <div class="progress-bar">
-            <div class="progress-fill" :style="{ width: progress + '%' }">{{ progress }}%</div>
-          </div>
-          <p class="progress-text">{{ progressText }}</p>
-        </div>
-
-        <div class="inference-section" v-if="showInference" id="inferenceSection">
-          <h2>模型推理</h2>
+        <div class="inference-section selection-panel" v-if="showInference" id="inferenceSection">
+          <h2>🧠 模型推理</h2>
           <div class="inference-actions">
             <button class="btn btn-primary" @click="inferenceDataset">数据集推理</button>
             <button class="btn btn-primary" @click="showUploadArea">上传图片推理</button>
@@ -333,14 +342,10 @@ export default {
       }
     }
 
-    const updateTime = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/time`)
-        const data = await res.json()
-        currentTime.value = data.current_time
-      } catch (error) {
-        console.error('获取时间失败:', error)
-      }
+    const updateTime = () => {
+      const now = new Date()
+      const pad = num => num.toString().padStart(2, '0')
+      currentTime.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
     }
 
     const loadUserDevices = async () => {
@@ -378,6 +383,13 @@ export default {
         currentDeviceLocation.value = device.location
         deviceLocation.value = device.location.region
       }
+      
+      // 清空验证内容和进度条
+      verificationResult.value = null
+      showProgress.value = false
+      progress.value = 0
+      progressText.value = ''
+      
       await loadDeviceModels(device.id)
       await loadAuthorizedModels(device.id)
       
@@ -411,16 +423,8 @@ export default {
         const data = await res.json()
         console.log('模型数据:', data)
         const modelList = data.models || []
-        // 将 yolov5s 模型排在第一位
-        models.value = modelList.sort((a, b) => {
-          const aIsYolov5s = (a.name && a.name.toLowerCase().includes('yolov5s')) || 
-                            (a.id && a.id.toLowerCase().includes('yolov5s'))
-          const bIsYolov5s = (b.name && b.name.toLowerCase().includes('yolov5s')) || 
-                            (b.id && b.id.toLowerCase().includes('yolov5s'))
-          if (aIsYolov5s && !bIsYolov5s) return -1
-          if (!aIsYolov5s && bIsYolov5s) return 1
-          return 0
-        })
+        // 按照后端返回的顺序显示
+        models.value = modelList
         
         // 为每个模型加载授权合约信息
         await loadAllModelContracts(deviceId)
@@ -512,16 +516,8 @@ export default {
         const res = await fetch(`${API_BASE}/device/authorized-models?device_id=${deviceId}`)
         const data = await res.json()
         if (data.authorized_models && data.authorized_models.length > 0) {
-          // 将 yolov5s 模型排在第一位
-          authorizedModels.value = data.authorized_models.sort((a, b) => {
-            const aIsYolov5s = (a.name && a.name.toLowerCase().includes('yolov5s')) || 
-                              (a.id && a.id.toLowerCase().includes('yolov5s'))
-            const bIsYolov5s = (b.name && b.name.toLowerCase().includes('yolov5s')) || 
-                              (b.id && b.id.toLowerCase().includes('yolov5s'))
-            if (aIsYolov5s && !bIsYolov5s) return -1
-            if (!aIsYolov5s && bIsYolov5s) return 1
-            return 0
-          })
+          // 按照后端返回的顺序显示
+          authorizedModels.value = data.authorized_models
         } else {
           authorizedModels.value = []
         }
@@ -533,7 +529,13 @@ export default {
 
     const selectModel = async (model) => {
       currentModelId.value = model.id
+      
+      // 清空验证内容和进度条
       verificationResult.value = null
+      showProgress.value = false
+      progress.value = 0
+      progressText.value = ''
+      
       inferenceResult.value = null
       showInference.value = false
       showUpload.value = false
@@ -593,7 +595,7 @@ export default {
 
       showProgress.value = true
       progress.value = 0
-      progressText.value = '开始验证授权合约...'
+      progressText.value = '授权合约验证中···'
       canDecrypt.value = false
       decrypting.value = true
       verificationResult.value = null
@@ -601,7 +603,7 @@ export default {
       try {
         // 步骤1: 验证授权合约和代码完整性
         progress.value = 30
-        progressText.value = '验证授权合约和代码完整性...'
+        progressText.value = '代码完整性验证中···'
 
         const locationForVerification = currentDeviceLocation.value || currentLocation.value
 
@@ -617,29 +619,85 @@ export default {
 
         const verifyData = await verifyRes.json()
 
-        // 先显示授权验证结果
+        // 先显示授权/代码完整性阶段的初始状态，模型完整性默认未执行
         verificationResult.value = {
           type: 'verifying',
           authorization: verifyData.authorization.message,
           codeIntegrity: verifyData.code_integrity.message,
-          authorizationChecked: verifyData.authorization.valid || false,
-          codeIntegrityChecked: false
+          modelIntegrity: '未执行',
+          authorizationChecked: false,
+          codeIntegrityChecked: false,
+          modelIntegrityChecked: false,
+          authorizationFailed: false,
+          codeIntegrityFailed: false,
+          modelIntegrityFailed: false
+        }
+        await new Promise(resolve => setTimeout(resolve, 300))
+
+        // 若授权未通过，立即失败并停止后续验证
+        if (!verifyData.authorization.valid) {
+          verificationResult.value = {
+            type: 'error',
+            authorization: verifyData.authorization.message,
+            codeIntegrity: '未执行',
+            modelIntegrity: '未执行',
+            authorizationChecked: false,
+            codeIntegrityChecked: false,
+            modelIntegrityChecked: false,
+            authorizationFailed: true,
+            codeIntegrityFailed: false,
+            modelIntegrityFailed: false
+          }
+          progress.value = 100
+          progressText.value = '模型解密失败！'
+          showProgress.value = false
+          canDecrypt.value = true
+          decrypting.value = false
+          return
         }
 
-        // 等待一下让用户看到授权验证的打勾
-        await new Promise(resolve => setTimeout(resolve, 500))
-
-        // 然后显示代码完整性验证结果
+        // 授权通过，进入代码完整性验证阶段
         verificationResult.value = {
           type: 'verifying',
           authorization: verifyData.authorization.message,
           codeIntegrity: verifyData.code_integrity.message,
-          authorizationChecked: verifyData.authorization.valid || false,
-          codeIntegrityChecked: verifyData.code_integrity.valid || false
+          modelIntegrity: '未执行',
+          authorizationChecked: true,
+          codeIntegrityChecked: false,
+          modelIntegrityChecked: false,
+          authorizationFailed: false,
+          codeIntegrityFailed: false,
+          modelIntegrityFailed: false
+        }
+        progressText.value = '代码完整性验证中···'
+        await new Promise(resolve => setTimeout(resolve, 300))
+
+        // 若代码完整性未通过，立即失败并停止后续流程
+        if (!verifyData.code_integrity.valid) {
+          verificationResult.value = {
+            type: 'error',
+            authorization: verifyData.authorization.message,
+            codeIntegrity: verifyData.code_integrity.message,
+            modelIntegrity: '未执行',
+            authorizationChecked: true,
+            codeIntegrityChecked: false,
+            modelIntegrityChecked: false,
+            authorizationFailed: false,
+            codeIntegrityFailed: true,
+            modelIntegrityFailed: false
+          }
+          progress.value = 100
+          progressText.value = '模型解密失败！'
+          showProgress.value = false
+          canDecrypt.value = true
+          decrypting.value = false
+          return
         }
 
-        // 等待一下让用户看到代码完整性验证的打勾
-        await new Promise(resolve => setTimeout(resolve, 500))
+        // 两项验证均通过，进入模型完整性阶段提示
+        progress.value = 40
+        progressText.value = '模型完整性验证中···'
+        await new Promise(resolve => setTimeout(resolve, 400))
 
         // 最后显示整体验证结果
         if (!verifyData.can_decrypt) {
@@ -647,9 +705,16 @@ export default {
             type: 'error',
             authorization: verifyData.authorization.message,
             codeIntegrity: verifyData.code_integrity.message,
+            modelIntegrity: '验证失败',
             authorizationChecked: verifyData.authorization.valid || false,
-            codeIntegrityChecked: verifyData.code_integrity.valid || false
+            codeIntegrityChecked: verifyData.code_integrity.valid || false,
+            modelIntegrityChecked: false,
+            authorizationFailed: false,
+            codeIntegrityFailed: false,
+            modelIntegrityFailed: true
           }
+          progress.value = 100
+          progressText.value = '模型解密失败！'
           showProgress.value = false
           canDecrypt.value = true
           decrypting.value = false
@@ -660,13 +725,18 @@ export default {
           type: 'success',
           authorization: verifyData.authorization.message,
           codeIntegrity: verifyData.code_integrity.message,
+          modelIntegrity: '模型完整性验证通过',
           authorizationChecked: verifyData.authorization.valid || false,
-          codeIntegrityChecked: verifyData.code_integrity.valid || false
+          codeIntegrityChecked: verifyData.code_integrity.valid || false,
+          modelIntegrityChecked: true,
+          authorizationFailed: false,
+          codeIntegrityFailed: false,
+          modelIntegrityFailed: false
         }
 
         // 步骤2: 获取解密密钥
-        progress.value = 50
-        progressText.value = '获取解密密钥...'
+        progress.value = 60
+        progressText.value = '模型解密中···'
 
         const keyRes = await fetch(`${API_BASE}/model/get_key`, {
           method: 'POST',
@@ -683,8 +753,8 @@ export default {
         }
 
         // 步骤3: 解密模型
-        progress.value = 80
-        progressText.value = '解密模型...'
+        progress.value = 85
+        progressText.value = '模型解密中···'
 
         const decryptRes = await fetch(`${API_BASE}/model/decrypt`, {
           method: 'POST',
@@ -702,7 +772,7 @@ export default {
 
         // 完成
         progress.value = 100
-        progressText.value = '解密完成！'
+        progressText.value = '模型解密完成！'
 
         setTimeout(async () => {
           await loadModelStatus()
@@ -809,6 +879,7 @@ export default {
         showUpload.value = false
 
         if (data.model_type === 'yolov5') {
+          const countColor = data.model_status === 'decrypted' ? 'rgba(39, 174, 96, 1)' : 'rgba(231, 76, 60, 1)'
           inferenceResult.value = `
             <div class="result-item">
               <h3>YOLOv5推理结果</h3>
@@ -817,7 +888,7 @@ export default {
                   <img src="${data.annotated_image}" alt="检测结果" style="max-width: 50%; height: auto; border: 1px solid #ddd; border-radius: 4px;">
                 </div>
               ` : '<p style="text-align: center; color: #e74c3c;">⚠️ 处理后的图像未返回</p>'}
-              <p style="color: rgba(214, 232, 255, 0.9);"><strong style="color: #e6f1ff;">检测数量:</strong> <span style="font-size: 20px; font-weight: 700; color: rgba(88, 178, 255, 1);">${data.detection_count || 0}</span></p>
+              <p style="color: rgba(214, 232, 255, 0.9);"><strong style="color: #e6f1ff;">检测数量:</strong> <span style="font-size: 20px; font-weight: 700; color: ${countColor};">${data.detection_count || 0}</span></p>
               <p style="color: rgba(214, 232, 255, 0.9);"><strong style="color: #e6f1ff;">推理时间:</strong> <span style="font-size: 20px; font-weight: 700; color: rgba(88, 178, 255, 1);">${data.inference_time ? (data.inference_time * 1000).toFixed(2) : 'N/A'}ms</span></p>
               <p style="color: rgba(214, 232, 255, 0.9);"><strong style="color: #e6f1ff;">模型状态:</strong> <span style="font-size: 20px; font-weight: 700; color: rgba(88, 178, 255, 1);">${data.model_status === 'decrypted' ? '已解密' : '已加密'}</span></p>
               ${data.detections && data.detections.length > 0 ? `
@@ -930,14 +1001,31 @@ export default {
         }
 
         if (data.dataset === 'yolov5_image_folder') {
+          // 根据模型状态确定准确率指标的颜色
+          const accuracyColor = data.model_status === 'decrypted' ? 'rgba(39, 174, 96, 1)' : 'rgba(231, 76, 60, 1)'
+          
           inferenceResult.value = `
             <div class="result-item">
               <h3>数据集推理结果</h3>
               <div class="stats-highlight-box">
                 <div class="stats-list">
+                  ${data.accuracy ? `
+                    <div class="stat-row">
+                      <span class="stat-label">精确率:</span>
+                      <span class="stat-value" style="font-size: 28px !important; font-weight: 700 !important; color: ${accuracyColor} !important;">${(data.accuracy.precision * 100).toFixed(2)}%</span>
+                    </div>
+                    <div class="stat-row">
+                      <span class="stat-label">召回率:</span>
+                      <span class="stat-value" style="font-size: 28px !important; font-weight: 700 !important; color: ${accuracyColor} !important;">${(data.accuracy.recall * 100).toFixed(2)}%</span>
+                    </div>
+                    <div class="stat-row">
+                      <span class="stat-label">F1 Score:</span>
+                      <span class="stat-value" style="font-size: 28px !important; font-weight: 700 !important; color: ${accuracyColor} !important;">${(data.accuracy.f1_score * 100).toFixed(2)}%</span>
+                    </div>
+                  ` : ''}
                   <div class="stat-row">
                     <span class="stat-label">总检测数量:</span>
-                    <span class="stat-value" style="font-size: 22px; font-weight: 700; color: rgba(88, 178, 255, 1);">${data.total_detections}</span>
+                    <span class="stat-value" style="font-size: 22px; font-weight: 700; color: ${accuracyColor};">${data.total_detections}</span>
                   </div>
                   <div class="stat-row">
                     <span class="stat-label">处理图片数:</span>
@@ -1131,6 +1219,17 @@ export default {
       showProgress,
       progress,
       progressText,
+      uiProgressText: computed(() => {
+        // 优先使用现有progressText，但做一层文案映射，确保符合需求
+        const t = (progressText.value || '').trim()
+        if (t.includes('失败')) return '模型解密失败！'
+        if (t.includes('授权') && t.includes('验证')) return '授权合约验证中···'
+        if (t.includes('代码') && t.includes('验证')) return '代码完整性验证中···'
+        if (t.includes('模型') && t.includes('完整') && t.includes('验证')) return '模型完整性验证中···'
+        if (t.includes('解密完成')) return '模型解密完成！'
+        if (t.includes('解密')) return '模型解密中···'
+        return t || '处理中···'
+      }),
       verificationResult,
       showInference,
       showUpload,
@@ -1257,10 +1356,27 @@ export default {
   margin-bottom: 30px;
 }
 
+.action-verification-panel {
+  margin-bottom: 24px;
+  display: block !important;
+  width: fit-content;
+  max-width: 100%;
+  transition: width 0.3s ease;
+}
+
+.action-verification-panel.has-content {
+  width: 100%;
+}
+
+/* 避免推理结果在grid布局中自动落到右侧列 */
+.inference-section.selection-panel {
+  display: block;
+}
+
 .selection-panel {
   background: linear-gradient(160deg, rgba(9, 32, 56, 0.92), rgba(4, 19, 34, 0.9));
   border-radius: 20px;
-  padding: 24px;
+  padding: 2px 24px 12px 24px;
   border: 1px solid rgba(88, 178, 255, 0.12);
   box-shadow: 0 24px 42px rgba(0, 0, 0, 0.36);
   display: grid;
@@ -1274,8 +1390,8 @@ export default {
 }
 
 .device-list h3, .model-list h3, .authorized-models-list h3 {
-  margin-bottom: 15px;
-  font-size: 16px;
+  margin-bottom: 20px;
+  font-size: 20px;
   color: #e6f1ff;
   font-weight: 600;
   border-bottom: 2px solid rgba(88, 178, 255, 0.3);
@@ -1531,7 +1647,8 @@ export default {
   padding: 12px 16px;
   border-radius: 10px;
   flex: 1;
-  min-width: 200px;
+  min-width: 220px;
+  height: 50px;
   border: 1px solid rgba(88, 178, 255, 0.12);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   display: flex;
@@ -1648,8 +1765,23 @@ export default {
   color: rgba(231, 76, 60, 0.9);
 }
 
+.top-row {
+  display: flex;
+  gap: 24px;
+  margin: 21px 0 8px 0;
+  padding: 0 20px;
+  align-items: flex-start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .action-section {
-  margin-bottom: 30px;
+  flex: 0 0 auto;
+  padding-top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 150px;
 }
 
 .btn {
@@ -1662,6 +1794,12 @@ export default {
   margin-right: 10px;
   margin-bottom: 10px;
   font-family: inherit;
+}
+
+/* 仅在左侧操作区维持紧凑垂直布局与统一高度 */
+.action-section .btn {
+  margin: 0;
+  line-height: 1.5;
 }
 
 .btn-primary {
@@ -1694,7 +1832,19 @@ export default {
 }
 
 .progress-section {
-  margin: 12px 0 20px 0;
+  margin: 0;
+  width: 100%;
+  clear: both;
+}
+
+.progress-column {
+  flex: 1 1 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0;
+  margin-top: 8px;
 }
 
 .progress-bar {
@@ -1725,11 +1875,65 @@ export default {
 }
 
 .verification-result {
-  margin: 20px 0;
-  padding: 15px;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 12px 15px;
   border-radius: 8px;
   background: rgba(9, 32, 56, 0.6);
   border: 1px solid rgba(88, 178, 255, 0.2);
+  height: 116px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  width: fit-content;
+}
+
+.verification-layout {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+}
+
+.verification-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0;
+  height: 100%;
+}
+
+.verification-middle {
+  width: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.verification-middle .arrow {
+  font-size: 40px;
+  color: rgba(39, 174, 96, 0.95);
+}
+
+.verification-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.verification-right .pass-text {
+  color: rgba(39, 174, 96, 0.95);
+  font-weight: 600;
+}
+
+.verification-right .pending-text {
+  color: rgba(214, 232, 255, 0.8);
+}
+
+.verification-right .fail-text {
+  color: rgba(231, 76, 60, 0.95);
+  font-weight: 600;
 }
 
 .verification-result.verifying {
@@ -1758,15 +1962,16 @@ export default {
 .verification-details {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 4px;
 }
 
 .verification-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 0;
+  padding: 0;
   transition: all 0.3s ease;
+  white-space: nowrap;
 }
 
 .verification-item.checked {
@@ -1784,6 +1989,14 @@ export default {
   color: rgba(39, 174, 96, 1);
 }
 
+.verification-item.failed {
+  color: rgba(231, 76, 60, 1);
+}
+
+.verification-item.failed .check-icon {
+  color: rgba(231, 76, 60, 1);
+}
+
 .verification-item .verification-label {
   font-weight: 600;
   min-width: 100px;
@@ -1797,13 +2010,16 @@ export default {
 }
 
 .inference-section {
-  margin-top: 30px;
+  margin-top: 0;
+  margin-bottom: 24px;
 }
 
 .inference-section h2 {
   color: #e6f1ff;
   margin-bottom: 20px;
-  font-size: 22px;
+  font-size: 20px;
+  border-bottom: 2px solid rgba(88, 178, 255, 0.3);
+  padding-bottom: 10px;
 }
 
 .inference-actions {
@@ -1835,14 +2051,14 @@ export default {
 .result-display {
   background: rgba(9, 32, 56, 0.6);
   border-radius: 10px;
-  padding: 25px;
+  padding: 12px 25px 25px 25px;
   margin-top: 20px;
   border: 1px solid rgba(88, 178, 255, 0.12);
 }
 
 .result-item {
   margin-bottom: 15px;
-  padding: 15px;
+  padding: 8px 15px 15px 15px;
   background: rgba(4, 19, 34, 0.6);
   border-radius: 8px;
   color: #e6f1ff;
@@ -1850,6 +2066,7 @@ export default {
 
 .result-item h3 {
   color: #e6f1ff;
+  margin-top: 0;
   margin-bottom: 12px;
   font-size: 18px;
 }
@@ -1880,6 +2097,35 @@ export default {
   padding: 16px;
   margin-bottom: 12px;
   box-shadow: 0 4px 12px rgba(88, 178, 255, 0.2);
+}
+
+/* 让“下面数据框”根据文字长度自适应宽度，而不是占满整行 */
+.result-item .stats-highlight-box {
+  display: inline-block;
+  width: auto;
+  max-width: 100%;
+}
+.result-item .stats-list { 
+  width: max-content; 
+}
+.result-item .stat-row { 
+  width: max-content; 
+}
+
+/* 作用于v-html渲染内容的深度选择器，确保自适应宽度生效 */
+:deep(.result-item .stats-highlight-box) {
+  display: inline-block;
+  width: auto;
+  max-width: 100%;
+}
+:deep(.result-item .stats-list) {
+  width: max-content;
+  align-items: flex-start;
+}
+:deep(.result-item .stat-row) {
+  width: max-content;
+  justify-content: flex-start;
+  gap: 12px;
 }
 
 .stats-list {

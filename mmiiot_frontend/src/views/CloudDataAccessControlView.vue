@@ -19,21 +19,21 @@
 
       <main class="main-content">
         <div class="header">
-          <h1>云上数据访问控制平台</h1>
+          <h1>柔性制造产线数据安全查询平台</h1>
         </div>
 
         <!-- 状态栏 -->
         <div class="status-bar">
           <div class="status-card">
-            <span class="status-label">当前时间：</span>
+            <span class="status-label">🕒 当前时间：</span>
             <span class="status-value">{{ currentTime }}</span>
           </div>
           <div class="status-card">
-            <span class="status-label">索引状态：</span>
+            <span class="status-label">📊 索引状态：</span>
             <span class="status-value">{{ indexStatus }}</span>
           </div>
           <div class="status-card">
-            <span class="status-label">部门（可多选）：</span>
+            <span class="status-label">🏢 部门（可多选）：</span>
             <span class="status-value">{{ selectedDepartmentsDisplay }}</span>
           </div>
         </div>
@@ -136,7 +136,7 @@
                   <span class="rank-badge">排名 #{{ idx + 1 }}</span>
                 </div>
                 <div class="meta-row">
-                  <strong>相似度</strong>
+                  <strong>内积结果</strong>
                   <span class="meta-pill score">{{ formatScore(item) }}</span>
                 </div>
                 <div class="meta-row" v-if="item.inner_product !== undefined">
@@ -278,10 +278,8 @@ export default {
 
     const updateCurrentTime = () => {
       const now = new Date()
-      currentTime.value = now.toLocaleString('zh-CN', {
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
-      })
+      const pad = num => num.toString().padStart(2, '0')
+      currentTime.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
     }
 
     const loadSystemInfo = async () => {
@@ -517,7 +515,7 @@ export default {
           } else {
             dim = safe.trapdoor_vector.length
           }
-          const preview = safe.trapdoor_vector.slice(0, 16).map(v => {
+          const preview = safe.trapdoor_vector.slice(0, 502).map(v => {
             if (typeof v === 'number') return v.toFixed(4)
             if (!isNaN(Number(v))) return Number(v).toFixed(4)
             return v
@@ -765,6 +763,7 @@ export default {
   border-radius: 10px;
   flex: 1;
   min-width: 220px;
+  height: 50px;
   border: 1px solid rgba(88, 178, 255, 0.12);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   display: flex;
@@ -777,12 +776,18 @@ export default {
 .selection-panel {
   background: linear-gradient(160deg, rgba(9, 32, 56, 0.92), rgba(4, 19, 34, 0.9));
   border-radius: 20px;
-  padding: 24px;
+  padding: 2px 24px 12px 24px;
   border: 1px solid rgba(88, 178, 255, 0.12);
   box-shadow: 0 24px 42px rgba(0, 0, 0, 0.36);
   margin-bottom: 24px;
 }
-.section-title { color: #e6f1ff; font-size: 20px; margin-bottom: 16px; }
+.section-title { 
+  color: #e6f1ff; 
+  font-size: 20px; 
+  margin-bottom: 16px; 
+  border-bottom: 2px solid rgba(88, 178, 255, 0.3);
+  padding-bottom: 10px;
+}
 .status-banner { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-weight: 600; }
 .status-banner.success { background: rgba(39, 174, 96, 0.15); border: 1px solid rgba(39, 174, 96, 0.4); color: rgba(39, 174, 96, 1); }
 .status-banner.error { background: rgba(231, 76, 60, 0.15); border: 1px solid rgba(231, 76, 60, 0.4); color: #e74c3c; }

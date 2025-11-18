@@ -82,12 +82,8 @@
             <div class="device-output">
               <h4>设备验证数据</h4>
               <div class="output-item">
-                <div class="output-label">IP:</div>
-                <div class="output-value" id="output-ip">{{ deviceOutput.ip }}</div>
-              </div>
-              <div class="output-item">
-                <div class="output-label">时间:</div>
-                <div class="output-value" id="output-time">{{ deviceOutput.time }}</div>
+                <div class="output-label">时空频指纹:</div>
+                <div class="output-value" id="output-spacetime-fingerprint">{{ deviceOutput.spacetimeFingerprint }}</div>
               </div>
               <div 
                 class="output-item" 
@@ -168,8 +164,7 @@ export default {
     const currentDeviceData = ref(null)
     
     const deviceOutput = reactive({
-      ip: '-',
-      time: '-',
+      spacetimeFingerprint: '-',
       deviceFingerprint: '-',
       dataFingerprint: '-'
     })
@@ -252,6 +247,12 @@ export default {
         throw new Error(`请求失败: ${res.status} ${errorText}`)
       }
       return await res.json()
+    }
+
+    // 计算时空频指纹 (IP + 时间的哈希)
+    const calculateSpacetimeFingerprint = (ip, timestamp) => {
+      const combined = ip + '|' + timestamp
+      return CryptoJS.MD5(combined).toString()
     }
 
     // 计算设备指纹
@@ -344,11 +345,27 @@ export default {
             }
 
             if (verificationOutput) {
+              // 计算并显示时空频指纹
+              if (verificationOutput.ip && verificationOutput.timestamp) {
+                const receivedFingerprint = calculateSpacetimeFingerprint(verificationOutput.ip, verificationOutput.timestamp);
+                
+                if (isValid && currentDeviceData.value) {
+                  // 验证通过，显示正确的时空频指纹
+                  deviceOutput.spacetimeFingerprint = receivedFingerprint;
+                } else if (!isValid && currentDeviceData.value) {
+                  // 验证失败，显示接收到的指纹和正确的指纹
+                  const correctFingerprint = calculateSpacetimeFingerprint(currentDeviceData.value.ip, currentDeviceData.value.timestamp);
+                  deviceOutput.spacetimeFingerprint = `接收值: ${receivedFingerprint} | 合法值: ${correctFingerprint}`;
+                } else {
+                  // 其他情况，只显示接收到的指纹
+                  deviceOutput.spacetimeFingerprint = receivedFingerprint;
+                }
+              }
+
+              // 保留原有的详细信息显示逻辑
               if (!ipValid && currentDeviceData.value) {
                 const originalIp = currentDeviceData.value.ip || '未知'
-                deviceOutput.ip = `设备IP: ${verificationOutput.ip} | 合法IP: ${originalIp}`
-              } else if (verificationOutput.ip) {
-                deviceOutput.ip = verificationOutput.ip
+                // 这里我们不再直接显示IP，而是保持时空频指纹的显示
               }
 
               if (!timeValid) {
@@ -366,9 +383,7 @@ export default {
                     hour12: false
                   }).replace(/\//g, '-')
                 }
-                deviceOutput.time = `数据时间: ${verificationOutput.timestamp} | 合法时间范围: ${formatTime(before10min)} 至 ${formatTime(after5min)}`
-              } else if (verificationOutput.timestamp) {
-                deviceOutput.time = verificationOutput.timestamp
+                // 我们不再直接显示时间，时空频指纹已经包含了时间信息
               }
             }
 
@@ -537,14 +552,25 @@ export default {
         const dev = await apiGet(`/api/devices/${deviceId}`)
         currentDeviceData.value = dev
 
-        if (dev.image_url) {
+        // 根据设备类型设置默认图片
+        if (dev.type) {
+          const imageMap = {
+            '海康工业相机': '/static/images/海康工业相机.png',
+            '西门子电机驱动器': '/static/images/西门子电机驱动器.jpg',
+            'TSN交换机': '/static/images/TSN交换机.avif',
+            '温度传感器': '/static/images/温度传感器.jpg',
+            'EtherCat电机驱动器': '/static/images/电机驱动器.jpg'
+          }
+          
+          const imagePath = imageMap[dev.type] || '/static/images/default.png'
+          deviceImageUrl.value = imagePath + '?t=' + Date.now()
+        } else if (dev.image_url) {
           deviceImageUrl.value = dev.image_url + '?t=' + Date.now()
         } else {
-          deviceImageUrl.value = ''
+          deviceImageUrl.value = '/static/images/default.png'
         }
 
-        deviceOutput.ip = '-'
-        deviceOutput.time = '-'
+        deviceOutput.spacetimeFingerprint = '-'
         deviceOutput.deviceFingerprint = '-'
         deviceOutput.dataFingerprint = '-'
 
@@ -574,8 +600,7 @@ export default {
         backendVerificationResults = result.verification_results
         verificationOutput = result.output
 
-        deviceOutput.ip = '-'
-        deviceOutput.time = '-'
+        deviceOutput.spacetimeFingerprint = '-'
         deviceOutput.deviceFingerprint = '-'
         deviceOutput.dataFingerprint = '-'
 
@@ -584,8 +609,8 @@ export default {
         const history = await apiGet(`/api/devices/${currentDeviceId.value}/history`)
         historyRecords.value = history.slice(0, 20)
       } catch (err) {
-        console.error('验证失败:', err)
-        alert('验证失败: ' + err.message)
+        console.error('模拟验证失败:', err)
+        alert('模拟验证失败: ' + err.message)
       }
     }
 
