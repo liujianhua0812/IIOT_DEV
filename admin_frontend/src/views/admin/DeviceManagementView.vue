@@ -1,7 +1,7 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { fetchDevices, fetchDevice, updateDevice, fetchDeviceTypes } from '../../services/api'
+import { fetchDevices, fetchDevice, createDevice, updateDevice, fetchDeviceTypes } from '../../services/api'
 
 const devices = ref([])
 const loading = ref(false)
@@ -113,6 +113,35 @@ const loadDeviceTypes = async () => {
   }
 }
 
+// 监听设备类型变化，初始化参数（用于新增设备时）
+watch(() => formData.value.device_type_id, async (newTypeId) => {
+  if (newTypeId && isEditMode.value && !deviceDetail.value?.id) {
+    // 只在新增模式下（没有 deviceDetail.id）才初始化参数
+    const selectedType = deviceTypes.value.find(t => t.id === newTypeId)
+    if (selectedType) {
+      // 更新 deviceDetail 以便显示参数
+      deviceDetail.value = {
+        device_type: selectedType
+      }
+      
+      // 初始化参数值
+      const parameters = {}
+      if (selectedType.parameters) {
+        for (const paramDef of selectedType.parameters) {
+          if (paramDef.type === 'number') {
+            parameters[paramDef.key] = null
+          } else if (paramDef.type === 'boolean') {
+            parameters[paramDef.key] = false
+          } else {
+            parameters[paramDef.key] = paramDef.default_value || ''
+          }
+        }
+      }
+      formData.value.parameters = parameters
+    }
+  }
+})
+
 const handleView = async (device) => {
   try {
     const response = await fetchDevice(device.id)
@@ -170,6 +199,38 @@ const handleView = async (device) => {
   }
 }
 
+const handleAdd = async () => {
+  // 重置表单数据
+  formData.value = {
+    name: '',
+    code: '',
+    device_type_id: null,
+    application_id: null,
+    position_x: null,
+    position_y: null,
+    serial_number: '',
+    longitude: null,
+    latitude: null,
+    status: '在线',
+    health_status: '良好',
+    description: '',
+    parameters: {}
+  }
+  
+  // 创建一个虚拟的 deviceDetail 对象，用于显示设备类型参数
+  deviceDetail.value = {
+    device_type: null
+  }
+  
+  isEditMode.value = true
+  dialogVisible.value = true
+  
+  // 确保设备类型列表已加载
+  if (deviceTypes.value.length === 0) {
+    await loadDeviceTypes()
+  }
+}
+
 const handleEdit = async (device) => {
   await handleView(device)
   isEditMode.value = true
@@ -207,15 +268,49 @@ const handleSubmit = async () => {
     }
     
     console.log('提交的设备数据:', submitData)
-    const response = await updateDevice(deviceDetail.value.id, submitData)
-    ElMessage.success('更新成功')
+    
+    let response
+    if (isEditMode.value && deviceDetail.value) {
+      // 更新现有设备
+      response = await updateDevice(deviceDetail.value.id, submitData)
+      
+      // 更新成功后，刷新设备列表和当前设备详情
+      await loadDevices()
+      
+      // 如果更新后的设备在当前页，更新列表中的对应设备数据
+      const updatedDevice = response.data.device
+      const deviceIndex = devices.value.findIndex(d => d.id === updatedDevice.id)
+      if (deviceIndex !== -1) {
+        // 更新列表中的设备数据，确保显示最新状态
+        devices.value[deviceIndex] = {
+          ...devices.value[deviceIndex],
+          status: updatedDevice.status,
+          health_status: updatedDevice.health_status,
+          name: updatedDevice.name,
+          code: updatedDevice.code,
+          description: updatedDevice.description,
+          // 更新其他可能变化的字段
+          ...updatedDevice
+        }
+      }
+      
+      ElMessage.success('更新成功')
+    } else {
+      // 创建新设备
+      response = await createDevice(submitData)
+      
+      // 创建成功后，刷新设备列表
+      await loadDevices()
+      
+      ElMessage.success('创建成功')
+    }
+    
     dialogVisible.value = false
-    loadDevices()
   } catch (err) {
     if (err !== false) {
-      const errorMessage = err.response?.data?.error || err.message || '更新失败，请稍后重试'
+      const errorMessage = err.response?.data?.error || err.message || (isEditMode.value ? '更新失败，请稍后重试' : '创建失败，请稍后重试')
       ElMessage.error(errorMessage)
-      console.error('更新设备失败:', err)
+      console.error(isEditMode.value ? '更新设备失败:' : '创建设备失败:', err)
       console.error('错误详情:', err.response?.data)
     }
   }
@@ -254,7 +349,7 @@ onMounted(() => {
         <h1>设备管理</h1>
         <p>统一管理平台已接入的工业设备资产，实时掌握设备状态与健康度。共 {{ total }} 台设备</p>
       </div>
-      <button class="action">新增设备</button>
+      <button class="action" @click="handleAdd">新增设备</button>
     </header>
 
     <div class="filters">

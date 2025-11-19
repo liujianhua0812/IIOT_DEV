@@ -1,7 +1,9 @@
 Flask==3.0.3
 Flask-Cors==5.0.0
+Flask-SocketIO==5.5.1
 psycopg2-binary==2.9.9
 SQLAlchemy>=2.0.35
 python-dotenv==1.0.0
 requests==2.31.0
+simpy==4.1.1
 

@@ -6,22 +6,27 @@
     </header>
 
     <section class="grid">
-      <article class="card radar">
-        <h2>安全监测中枢</h2>
+      <article class="card" @click="navigateToDeviceVerification('hikvision-camera')">
+        <h2>设备可信认证</h2>
         <p>融合链路、设备、模型、任务多维指标，实时安全态势感知。</p>
-        <div class="chip-group">
-          <span class="chip">零信任访问控制</span>
-          <span class="chip">模型安全沙箱</span>
-          <span class="chip">异常行为画像</span>
+        <div class="chip-group device-chip-group" @click.stop>
+          <button class="chip" @click="navigateToDeviceVerification('hikvision-camera')">海康工业相机（Ethernet Protocol）</button>
+          <button class="chip" @click="navigateToDeviceVerification('siemens-motor-driver')">西门子电机驱动器（ProfiNet Protocol）</button>
+          <button class="chip" @click="navigateToDeviceVerification('tsn-switch')">TSN交换机（TSN Protocol）</button>
+          <button class="chip" @click="navigateToDeviceVerification('temperature-sensor')">温度传感器（Modbus Protocol）</button>
+          <button class="chip" @click="navigateToDeviceVerification('ethercat-motor-driver')">EtherCat电机驱动器（EtherCat Protocol）</button>
         </div>
       </article>
-      <article class="card">
-        <h3>自适应防护策略</h3>
+      <article class="card" @click="navigateToAccessControl('端侧模型访问控制')">
+        <h2>细粒度访问控制</h2>
         <p>安全策略自学习迭代，自动编排边云协同防护链路。</p>
-      </article>
-      <article class="card">
-        <h3>可信审计</h3>
-        <p>分布式审计账本，全链路可追溯，确保安全策略可验证、可证明。</p>
+        <div class="chip-group access-chip-group" @click.stop>
+          <button class="chip" @click="navigateToAccessControl('端侧模型访问控制')">端侧模型访问控制（Device-Side Model）</button>
+          <button class="chip" @click="navigateToAccessControl('云侧模型访问控制')">云侧模型访问控制（Cloud-Side Model）</button>
+          <button class="chip" @click="navigateToAccessControl('云上数据访问控制')">云上数据访问控制（Cloud Data）</button>
+          <button class="chip" @click="navigateToAccessControl('链上数据访问控制')">链上数据访问控制（Chain Data）</button>
+          <button class="chip" @click="navigateToAccessControl('视频数据访问控制')">视频数据访问控制（Video Data）</button>
+        </div>
       </article>
       <article class="card radar">
         <h2>DDoS检测</h2>
@@ -34,6 +39,61 @@
     </section>
   </div>
 </template>
+
+<script>
+import { useRouter } from 'vue-router'
+
+export default {
+  name: 'SecurityView',
+  setup() {
+    const router = useRouter()
+    
+    // 包装push，避免重复导航等错误导致未捕获异常
+    const safePush = (to) => {
+      return router.push(to).catch(err => {
+        // 忽略导航重复等可预期的错误
+        if (err.name !== 'NavigationDuplicated') {
+          console.warn('导航错误:', err)
+        }
+      })
+    }
+
+    const navigateToEdgeModel = () => {
+      safePush({ name: 'edge-model-access-control' })
+    }
+
+    const navigateToAccessControl = (type) => {
+      const routeMap = {
+        '端侧模型访问控制': 'edge-model-access-control',
+        '云侧模型访问控制': 'cloud-model-access-control',
+        '云上数据访问控制': 'cloud-data-access-control',
+        '链上数据访问控制': 'chain-data-access-control',
+        '视频数据访问控制': 'video-data-access-control'
+      }
+      const routeName = routeMap[type]
+      if (routeName) {
+        safePush({ name: routeName })
+      }
+    }
+
+    const navigateToDeviceVerification = (deviceType) => {
+      // 使用英文设备类型作为路由参数
+      return router.push(`/security/device-verification/${deviceType}`).catch(err => {
+        // 忽略导航重复等可预期的错误
+        if (err.name !== 'NavigationDuplicated') {
+          console.warn('导航错误:', err)
+        }
+      })
+    }
+
+    return {
+      navigateToEdgeModel,
+      navigateToAccessControl,
+      navigateToDeviceVerification
+    }
+  }
+}
+</script>
 
 <style scoped>
 .page-shell {
@@ -68,10 +128,17 @@
   padding: 24px 28px;
   border: 1px solid rgba(88, 178, 255, 0.12);
   box-shadow: 0 24px 42px rgba(0, 0, 0, 0.36);
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
-.card h2,
-.card h3 {
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 28px 48px rgba(0, 0, 0, 0.4);
+  border-color: rgba(88, 178, 255, 0.2);
+}
+
+.card h2 {
   font-size: 22px;
   margin-bottom: 14px;
 }
@@ -88,6 +155,13 @@
   margin-top: 18px;
 }
 
+.device-chip-group,
+.access-chip-group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
 .chip {
   padding: 8px 16px;
   border-radius: 999px;
@@ -95,11 +169,15 @@
   background: rgba(128, 214, 255, 0.12);
   font-size: 13px;
   letter-spacing: 0.8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: inherit;
+  font-family: inherit;
 }
 
-.radar {
-  background: linear-gradient(135deg, rgba(14, 54, 88, 0.95), rgba(4, 28, 48, 0.9));
-  border: 1px solid rgba(73, 197, 255, 0.28);
+.chip:hover {
+  background: rgba(128, 214, 255, 0.2);
+  border-color: rgba(128, 214, 255, 0.35);
 }
 .clickable {
   cursor: pointer;
@@ -126,5 +204,10 @@
 .chip-link:hover {
   background: rgba(128, 214, 255, 0.18);
 }
+
+.device-chip-group .chip {
+  padding: 8px 12px;
+}
+
 </style>
 

@@ -1,3 +1,5 @@
+import * as echarts from 'echarts'
+import 'echarts-gl'
 import { createApp } from 'vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -12,5 +14,4 @@ use([CanvasRenderer, TooltipComponent, GeoComponent, TitleComponent, EffectScatt
 const app = createApp(App)
 
 app.use(router)
-
 app.mount('#app')
