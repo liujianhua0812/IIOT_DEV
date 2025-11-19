@@ -69,10 +69,13 @@ export default {
     }
 
     const navigateToDeviceVerification = (deviceType) => {
-      // 兼容中文/空格参数；Vue Router 会自动编码
-      safePush({ 
-        name: 'device-verification', 
-        params: { deviceType }
+      // 使用路径方式传递中文参数，避免 params 编码问题
+      const encodedType = encodeURIComponent(deviceType)
+      return router.push(`/security/device-verification/${encodedType}`).catch(err => {
+        // 忽略导航重复等可预期的错误
+        if (err.name !== 'NavigationDuplicated') {
+          console.warn('导航错误:', err)
+        }
       })
     }
 
