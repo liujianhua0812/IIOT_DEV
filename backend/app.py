@@ -5,7 +5,9 @@ import requests
 import secrets
 from flask import Flask, jsonify, request, Response, send_file
 from flask_cors import CORS
+from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
+from sqlalchemy import func
 from database import (
     get_db,
     Device,
@@ -17,9 +19,13 @@ from database import (
     DeviceTopology,
     VideoStream,
     LaptopLabelType,
+    ProductType,
+    ProductionOrder,
+    ProductionProduct,
 )
 from sqlalchemy.orm import joinedload
 from config import MODE
+from simulation import create_simulator
 
 ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "svg", "webp"}
 
@@ -29,6 +35,28 @@ token_store = {}
 
 def create_app() -> Flask:
     app = Flask(__name__)
+    
+    # Initialize SocketIO
+    allowed_origins_for_socketio = "*" if MODE != "production" else os.getenv("CORS_ORIGINS", "").split(",")
+    socketio = SocketIO(app, cors_allowed_origins=allowed_origins_for_socketio, async_mode='threading')
+    app.socketio = socketio
+    
+    try:
+        app.production_simulator = create_simulator()
+        # Set WebSocket callback for simulator
+        if app.production_simulator:
+            def websocket_push(event):
+                # Broadcast to all connected clients immediately
+                # In Flask-SocketIO, emit without room parameter broadcasts to all clients in the namespace
+                try:
+                    socketio.emit('simulation_event', event, namespace='/simulation')
+                    print(f"WebSocket event sent: {event.get('stage', 'unknown')} - {event.get('message', '')[:50]}")
+                except Exception as e:
+                    print(f"Error sending WebSocket event: {e}")
+            app.production_simulator.set_websocket_callback(websocket_push)
+    except Exception as e:
+        print(f"生产模拟器启动失败: {e}")
+        app.production_simulator = None
     
     # 根据运行模式配置 CORS
     if MODE == "production":
@@ -1518,6 +1546,93 @@ def register_routes(app: Flask) -> None:
 
         relative_path = f"./data/labels/uploads/{unique_name}"
         return jsonify({"message": "上传成功", "path": relative_path}), 201
+
+    @app.get("/api/orders/in-progress")
+    def get_in_progress_orders():
+        """获取执行中的生产订单列表"""
+        db = next(get_db())
+        try:
+            orders = (
+                db.query(ProductionOrder)
+                .options(joinedload(ProductionOrder.product_type))
+                .filter(ProductionOrder.status == "in_progress")
+                .order_by(ProductionOrder.scheduled_date.asc())
+                .limit(20)
+                .all()
+            )
+
+            order_ids = [order.id for order in orders]
+            completed_counts = {}
+            if order_ids:
+                completed_rows = (
+                    db.query(ProductionProduct.order_id, func.count(ProductionProduct.id))
+                    .filter(ProductionProduct.order_id.in_(order_ids))
+                    .filter(ProductionProduct.status.in_(["packaged", "shipped"]))
+                    .group_by(ProductionProduct.order_id)
+                    .all()
+                )
+                completed_counts = {order_id: count for order_id, count in completed_rows}
+
+            order_data = []
+            for order in orders:
+                completed = completed_counts.get(order.id, 0)
+                quantity = order.quantity or 0
+                pending = max(quantity - completed, 0)
+                order_data.append({
+                    "order_id": order.id,
+                    "order_code": order.order_code,
+                    "product_code": order.product_code,
+                    "product_name": order.product_type.product_name if order.product_type else order.product_code,
+                    "quantity": quantity,
+                    "completed": completed,
+                    "pending": pending,
+                    "scheduled_date": order.scheduled_date.isoformat() if order.scheduled_date else None,
+                    "delivery_date": order.delivery_date.isoformat() if order.delivery_date else None,
+                })
+
+            return jsonify({"orders": order_data}), 200
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            print(error_trace)
+            return jsonify({"error": str(e), "traceback": error_trace}), 500
+        finally:
+            db.close()
+
+    @app.get("/api/simulation/events")
+    def get_simulation_events():
+        simulator = getattr(app, "production_simulator", None)
+        if not simulator:
+            return jsonify({"events": []}), 200
+        limit = request.args.get("limit", 100, type=int)
+        return jsonify({"events": simulator.get_events(limit)}), 200
+
+    @app.get("/api/simulation/status")
+    def get_simulation_status():
+        simulator = getattr(app, "production_simulator", None)
+        if not simulator:
+            return jsonify({"running": False, "events": 0}), 200
+        return jsonify({
+            "running": simulator.running,
+            "events": len(simulator.events)
+        }), 200
+
+    # WebSocket event handlers
+    @app.socketio.on('connect', namespace='/simulation')
+    def handle_simulation_connect():
+        """Handle WebSocket connection for simulation events."""
+        print('Client connected to simulation namespace')
+        # Send initial events if available (limit to 20)
+        simulator = getattr(app, "production_simulator", None)
+        if simulator:
+            events = simulator.get_events(20)
+            if events:
+                emit('initial_events', {'events': events})
+
+    @app.socketio.on('disconnect', namespace='/simulation')
+    def handle_simulation_disconnect():
+        """Handle WebSocket disconnection."""
+        print('Client disconnected from simulation namespace')
 
     @app.get("/api/applications")
     def get_applications():
