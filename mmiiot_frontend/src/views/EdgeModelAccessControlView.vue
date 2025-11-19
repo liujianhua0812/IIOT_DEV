@@ -279,10 +279,8 @@ export default {
     })
 
     // API配置
-    // 优先使用环境变量，否则使用当前主机名和5002端口（后端服务端口）
-    const API_HOST = import.meta.env.VITE_API_HOST || window.location.hostname
-    const API_PORT = import.meta.env.VITE_API_PORT || '5002'
-    const API_BASE = `http://${API_HOST}:${API_PORT}/api`
+    // 固定后端地址
+    const API_BASE = 'http://210.45.71.131:5002/api'
     const currentUserId = 'user1'
     
     // 调试信息
