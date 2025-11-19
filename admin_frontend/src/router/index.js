@@ -30,6 +30,11 @@ const routes = [
         component: () => import('../views/admin/DeviceTypeManagementView.vue'),
       },
       {
+        path: 'label-types',
+        name: 'label-types',
+        component: () => import('../views/admin/LabelTypeManagementView.vue'),
+      },
+      {
         path: 'models',
         name: 'models',
         component: () => import('../views/admin/ModelManagementView.vue'),
@@ -38,6 +43,11 @@ const routes = [
         path: 'tasks',
         name: 'tasks',
         component: () => import('../views/admin/TaskManagementView.vue'),
+      },
+      {
+        path: 'topology',
+        name: 'topology',
+        component: () => import('../views/admin/TopologyManagementView.vue'),
       },
       {
         path: 'profile',

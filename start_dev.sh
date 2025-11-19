@@ -137,6 +137,7 @@ echo -e "${GREEN}TellhowTraffic 已启动 (PID: $TRAFFIC_PID)${NC}"
 echo "  日志文件: logs/tellhowtraffic.log"
 echo "  访问地址: http://localhost:10065"
 
+
 # 保存 PID 到文件
 echo "$BACKEND_PID" > logs/backend.pid
 echo "$MMI_PID" > logs/mmiiot_frontend.pid
@@ -144,6 +145,7 @@ echo "$ADMIN_PID" > logs/admin_frontend.pid
 echo "$FMS_PID" > logs/lenovofms.pid
 echo "$PLM_PID" > logs/lenovoplm.pid
 echo "$TRAFFIC_PID" > logs/tellhowtraffic.pid
+
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${GREEN}启动完成！${NC}"

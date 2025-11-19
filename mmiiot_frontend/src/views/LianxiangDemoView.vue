@@ -10,11 +10,13 @@
       <div class="systems-grid">
         <div 
           class="system-card" 
-          @click="openSystem('http://166.111.80.127:10064')"
+          @click="openSystem('http://166.111.80.127:10063')"
         >
-          <div class="system-icon">PLM</div>
-          <h3>Lenovo PLM</h3>
-          <p>联想产品生命周期管理系统</p>
+          <div class="system-image-container">
+            <img src="/lenovo_fms.png" alt="Lenovo FMS" class="system-image" />
+          </div>
+          <h3>Lenovo FMS</h3>
+          <p>联想设备管理系统</p>
           <div class="system-link">
             <span>访问系统</span>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -24,11 +26,13 @@
         </div>
         <div 
           class="system-card" 
-          @click="openSystem('http://166.111.80.127:10063')"
+          @click="openSystem('http://166.111.80.127:10064')"
         >
-          <div class="system-icon">FMS</div>
-          <h3>Lenovo FMS</h3>
-          <p>联想设备管理系统</p>
+          <div class="system-image-container">
+            <img src="/lenovo_plm.png" alt="Lenovo PLM" class="system-image" />
+          </div>
+          <h3>Lenovo PLM</h3>
+          <p>联想产品生命周期管理系统</p>
           <div class="system-link">
             <span>访问系统</span>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -100,21 +104,24 @@ const openSystem = (url) => {
 
 .systems-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 550px));
+  gap: 48px;
   margin-bottom: 48px;
+  justify-content: center;
 }
 
 .system-card {
   background: linear-gradient(160deg, rgba(12, 35, 58, 0.9), rgba(7, 25, 42, 0.92));
   border-radius: 20px;
-  padding: 32px;
+  padding: 0;
   border: 1px solid rgba(88, 178, 255, 0.12);
   box-shadow: 0 24px 42px rgba(0, 0, 0, 0.32);
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .system-card::before {
@@ -137,6 +144,46 @@ const openSystem = (url) => {
 
 .system-card:hover::before {
   transform: scaleX(1);
+}
+
+.system-image-container {
+  width: 100%;
+  height: 320px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.3);
+  position: relative;
+  border-radius: 20px 20px 0 0;
+}
+
+.system-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.system-card:hover .system-image {
+  transform: scale(1.08);
+}
+
+.system-card h3,
+.system-card p,
+.system-card .system-link {
+  padding: 0 32px;
+}
+
+.system-card h3 {
+  margin-top: 24px;
+}
+
+.system-card p {
+  margin-bottom: 24px;
+  flex-grow: 1;
+}
+
+.system-card .system-link {
+  margin-bottom: 32px;
+  padding-bottom: 0;
 }
 
 .system-icon {

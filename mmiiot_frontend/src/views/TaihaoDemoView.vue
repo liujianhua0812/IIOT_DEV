@@ -12,9 +12,11 @@
           class="system-card" 
           @click="openSystem('http://166.111.80.127:10065')"
         >
-          <div class="system-icon">TT</div>
-          <h3>Tellhow Traffic</h3>
-          <p>泰豪交通管理系统</p>
+          <div class="system-image-container">
+            <img src="/tellhow_traffic.webp" alt="Tellhow Traffic" class="system-image" />
+          </div>
+          <h3>泰豪交通管理系统</h3>
+          <p>湘潭市智能交通管理系统</p>
           <div class="system-link">
             <span>访问系统</span>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -26,7 +28,9 @@
           class="system-card" 
           @click="openSystem('http://166.111.80.127:10073/')"
         >
-          <div class="system-icon">钢铁</div>
+          <div class="system-image-container">
+            <img src="/tellhow_iron.png" alt="安全能源生产系统（钢铁）" class="system-image" />
+          </div>
           <h3>安全能源生产系统（钢铁）</h3>
           <p>面向钢铁行业的能源安全生产管理系统</p>
           <div class="system-link">
@@ -40,7 +44,9 @@
           class="system-card" 
           @click="openSystem('http://166.111.80.127:10073/')"
         >
-          <div class="system-icon">火电</div>
+          <div class="system-image-container">
+            <img src="/tellhow_fire.jpg" alt="安全能源生产系统（火电）" class="system-image" />
+          </div>
           <h3>安全能源生产系统（火电）</h3>
           <p>面向火电行业的能源安全生产管理系统</p>
           <div class="system-link">
@@ -109,21 +115,24 @@ const openSystem = (url) => {
 
 .systems-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 550px));
+  gap: 48px;
   margin-bottom: 48px;
+  justify-content: center;
 }
 
 .system-card {
   background: linear-gradient(160deg, rgba(10, 30, 50, 0.92), rgba(6, 22, 36, 0.92));
   border-radius: 20px;
-  padding: 32px;
+  padding: 0;
   border: 1px solid rgba(88, 178, 255, 0.12);
   box-shadow: 0 24px 42px rgba(0, 0, 0, 0.32);
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .system-card::before {
@@ -146,6 +155,46 @@ const openSystem = (url) => {
 
 .system-card:hover::before {
   transform: scaleX(1);
+}
+
+.system-image-container {
+  width: 100%;
+  height: 320px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.3);
+  position: relative;
+  border-radius: 20px 20px 0 0;
+}
+
+.system-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.system-card:hover .system-image {
+  transform: scale(1.08);
+}
+
+.system-card h3,
+.system-card p,
+.system-card .system-link {
+  padding: 0 32px;
+}
+
+.system-card h3 {
+  margin-top: 24px;
+}
+
+.system-card p {
+  margin-bottom: 24px;
+  flex-grow: 1;
+}
+
+.system-card .system-link {
+  margin-bottom: 32px;
+  padding-bottom: 0;
 }
 
 .system-icon {

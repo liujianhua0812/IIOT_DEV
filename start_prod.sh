@@ -65,6 +65,8 @@ export VITE_API_BASE_URL=http://${DEPLOY_IP}:10060
 npm run build
 cd ..
 
+
+
 # 创建日志目录
 mkdir -p logs
 
@@ -76,7 +78,7 @@ export FLASK_ENV=production
 export DB_HOST=192.168.34.14
 export DB_PORT=5432
 export FLASK_PORT=10060
-export CORS_ORIGINS="http://${DEPLOY_IP}:10061,http://${DEPLOY_IP}:10062,http://${DEPLOY_IP}:10063,http://${DEPLOY_IP}:10064,http://${DEPLOY_IP}:10065,http://localhost:10061,http://localhost:10062,http://localhost:10063,http://localhost:10064,http://localhost:10065"
+export CORS_ORIGINS="http://${DEPLOY_IP}:10061,http://${DEPLOY_IP}:10062,http://${DEPLOY_IP}:10063,http://${DEPLOY_IP}:10064,http://${DEPLOY_IP}:10065,http://localhost:10061,http://localhost:10062,http://localhost:10063,http://localhost:10064,http://localhost:10065,http://localhost:10075"
 nohup python run_prod.py > ../logs/backend.log 2>&1 &
 BACKEND_PID=$!
 cd ..
@@ -136,6 +138,7 @@ cd ..
 echo -e "${GREEN}TellhowTraffic 已启动 (PID: $TRAFFIC_PID)${NC}"
 echo "  日志文件: logs/tellhowtraffic.log"
 echo "  访问地址: http://${DEPLOY_IP}:10065"
+
 
 # 保存 PID 到文件
 echo "$BACKEND_PID" > logs/backend.pid

@@ -1,5 +1,5 @@
 """数据库连接和模型定义"""
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Text, Boolean, Float, UniqueConstraint
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Text, Boolean, Float, UniqueConstraint, Date
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
@@ -156,7 +156,7 @@ class Device(Base):
     description = Column(Text, nullable=True, comment="设备描述")
     last_heartbeat = Column(DateTime, nullable=True, comment="最后心跳时间")
     created_at = Column(DateTime, nullable=True, comment="创建时间")
-    updated_at = Column(DateTime, nullable=True, comment="更新时间")
+    updated_at = Column(DateTime, nullable=True, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
 
     # 关联关系
     device_type = relationship("DeviceType", back_populates="devices")
@@ -251,6 +251,110 @@ class DeviceParameterValue(Base):
         }
 
 
+class LaptopLabelType(Base):
+    """笔记本贴标类型表"""
+    __tablename__ = "laptop_label_types"
+
+    id = Column(Integer, primary_key=True, index=True, comment="标签类型ID")
+    name = Column(String(200), nullable=False, comment="标签名称")
+    label_type = Column(String(100), nullable=False, comment="标签类别")
+    length_mm = Column(Float, nullable=True, comment="标签长度（mm）")
+    width_mm = Column(Float, nullable=True, comment="标签宽度（mm）")
+    image_path = Column(String(500), nullable=False, comment="标签图片路径")
+    application_id = Column(
+        Integer,
+        ForeignKey("applications.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="所属应用ID",
+    )
+    description = Column(Text, nullable=True, comment="标签描述")
+    created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
+
+    application = relationship("Application", backref="laptop_label_types")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "label_type": self.label_type,
+            "length_mm": self.length_mm,
+            "width_mm": self.width_mm,
+            "image_path": self.image_path,
+            "application_id": self.application_id,
+            "description": self.description,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    def __repr__(self):
+        return f"<LaptopLabelType(id={self.id}, name='{self.name}', label_type='{self.label_type}')>"
+
+
+class ProductType(Base):
+    """产品类型表（笔记本机型）"""
+    __tablename__ = "product_types"
+
+    id = Column(Integer, primary_key=True, index=True, comment="产品类型ID")
+    product_code = Column(String(100), nullable=False, unique=True, comment="产品编号")
+    product_name = Column(String(200), nullable=False, comment="产品名称")
+    rule_file_path = Column(String(500), nullable=True, comment="产品规则文件路径")
+    description = Column(Text, nullable=True, comment="产品描述")
+    created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
+
+    orders = relationship("ProductionOrder", back_populates="product_type", cascade="all, delete-orphan")
+    products = relationship("ProductionProduct", back_populates="product_type")
+
+    def __repr__(self):
+        return f"<ProductType(id={self.id}, code='{self.product_code}', name='{self.product_name}')>"
+
+
+class ProductionOrder(Base):
+    """生产订单表"""
+    __tablename__ = "production_orders"
+
+    id = Column(Integer, primary_key=True, index=True, comment="订单ID")
+    order_code = Column(String(100), nullable=True, unique=True, comment="订单编号")
+    product_code = Column(String(100), nullable=False, comment="产品编号（冗余）")
+    product_type_id = Column(Integer, ForeignKey("product_types.id", ondelete="SET NULL"), nullable=True, comment="产品类型ID")
+    quantity = Column(Integer, nullable=False, default=0, comment="产品数量")
+    scheduled_date = Column(Date, nullable=True, comment="排产日期")
+    delivery_date = Column(Date, nullable=True, comment="交付日期")
+    status = Column(String(50), nullable=True, comment="订单状态")
+    remarks = Column(Text, nullable=True, comment="备注")
+    created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
+
+    product_type = relationship("ProductType", back_populates="orders")
+    products = relationship("ProductionProduct", back_populates="order", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<ProductionOrder(id={self.id}, order_code='{self.order_code}', product_code='{self.product_code}')>"
+
+
+class ProductionProduct(Base):
+    """生产产品表（具体序列号）"""
+    __tablename__ = "production_products"
+
+    id = Column(Integer, primary_key=True, index=True, comment="产品记录ID")
+    serial_number = Column(String(150), nullable=False, unique=True, comment="产品序列号")
+    order_id = Column(Integer, ForeignKey("production_orders.id", ondelete="SET NULL"), nullable=True, comment="所属订单ID")
+    product_type_id = Column(Integer, ForeignKey("product_types.id", ondelete="SET NULL"), nullable=True, comment="产品类型ID")
+    status = Column(String(50), nullable=True, comment="产品状态")
+    produced_at = Column(DateTime, nullable=True, comment="生产完成时间")
+    produced_end = Column(DateTime, nullable=True, comment="生产完成时间（精确时间点）")
+    description = Column(Text, nullable=True, comment="备注信息")
+    created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
+
+    order = relationship("ProductionOrder", back_populates="products")
+    product_type = relationship("ProductType", back_populates="products")
+
+    def __repr__(self):
+        return f"<ProductionProduct(id={self.id}, serial_number='{self.serial_number}')>"
+
+
 class User(Base):
     """用户表"""
     __tablename__ = "users"
@@ -317,6 +421,49 @@ class DeviceTopology(Base):
 
     def __repr__(self):
         return f"<DeviceTopology(id={self.id}, source='{self.source_device_code}', target='{self.target_device_code}')>"
+
+
+class VideoStream(Base):
+    """视频流表"""
+    __tablename__ = "video_streams"
+
+    id = Column(Integer, primary_key=True, index=True, comment="视频流ID")
+    device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), nullable=False, comment="设备ID")
+    stream_name = Column(String(200), nullable=False, comment="流名称")
+    stream_url = Column(String(500), nullable=True, comment="流URL（RTSP/HTTP/HLS等）")
+    file_path = Column(String(500), nullable=True, comment="视频文件路径")
+    stream_type = Column(String(50), nullable=True, default="file", comment="流类型: file/rtsp/http/hls")
+    status = Column(String(20), nullable=True, default="active", comment="状态: active/inactive")
+    resolution = Column(String(50), nullable=True, comment="分辨率")
+    bitrate = Column(Integer, nullable=True, comment="码率(kbps)")
+    fps = Column(Integer, nullable=True, comment="帧率")
+    description = Column(Text, nullable=True, comment="描述")
+    created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
+
+    # 关联关系
+    device = relationship("Device", backref="video_streams")
+
+    def to_dict(self):
+        """转换为字典格式"""
+        return {
+            "id": self.id,
+            "device_id": self.device_id,
+            "stream_name": self.stream_name,
+            "stream_url": self.stream_url,
+            "file_path": self.file_path,
+            "stream_type": self.stream_type,
+            "status": self.status,
+            "resolution": self.resolution,
+            "bitrate": self.bitrate,
+            "fps": self.fps,
+            "description": self.description,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    def __repr__(self):
+        return f"<VideoStream(id={self.id}, device_id={self.device_id}, stream_name='{self.stream_name}')>"
 
 
 def init_db():
