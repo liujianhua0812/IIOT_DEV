@@ -75,6 +75,12 @@ const routes = [
     path: '/security/device-verification/:deviceType?',
     name: 'device-verification',
     component: () => import('../views/DeviceVerificationView.vue'),
+    path: '/tsn-configurator',
+    name: 'tsn-configurator',
+    component: () => import('../views/TSNConfiguratorView.vue'),
+    meta: {
+      standalone: true,
+    },
   },
 ]
 
