@@ -77,6 +77,36 @@ const routes = [
     component: () => import('../views/TaihaoDemoView.vue'),
   },
   {
+    path: '/security/edge-model-access-control',
+    name: 'edge-model-access-control',
+    component: () => import('../views/EdgeModelAccessControlView.vue'),
+  },
+  {
+    path: '/security/cloud-model-access-control',
+    name: 'cloud-model-access-control',
+    component: () => import('../views/CloudModelAccessControlView.vue'),
+  },
+  {
+    path: '/security/cloud-data-access-control',
+    name: 'cloud-data-access-control',
+    component: () => import('../views/CloudDataAccessControlView.vue'),
+  },
+  {
+    path: '/security/chain-data-access-control',
+    name: 'chain-data-access-control',
+    component: () => import('../views/ChainDataAccessControlView.vue'),
+  },
+  {
+    path: '/security/video-data-access-control',
+    name: 'video-data-access-control',
+    component: () => import('../views/VideoDataAccessControlView.vue'),
+  },
+  {
+    path: '/security/device-verification/:deviceType?',
+    name: 'device-verification',
+    component: () => import('../views/DeviceVerificationView.vue'),
+  },
+  {
     path: '/tsn-configurator',
     name: 'tsn-configurator',
     component: () => import('../views/TSNConfiguratorView.vue'),

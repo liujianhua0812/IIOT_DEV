@@ -9,8 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-   "@kjgl77/datav-vue3": "^1.7.3",
+    "@kjgl77/datav-vue3": "^1.7.3",
     "axios": "^1.13.2",
+    "crypto-js": "^4.2.0",
     "echarts": "5.4.3",
     "echarts-gl": "^2.0.9",
     "element-plus": "^2.8.7",
