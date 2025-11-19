@@ -39,9 +39,21 @@ export default {
   name: 'SecurityView',
   setup() {
     const router = useRouter()
+    
+    // 包装push，避免重复导航等错误导致未捕获异常
+    const safePush = (to) => {
+      try {
+        const p = router.push(to)
+        if (p && typeof p.catch === 'function') {
+          p.catch(() => {})
+        }
+      } catch (e) {
+        // 忽略由于相同路由、参数导致的导航错误
+      }
+    }
 
     const navigateToEdgeModel = () => {
-      router.push({ name: 'edge-model-access-control' })
+      safePush({ name: 'edge-model-access-control' })
     }
 
     const navigateToAccessControl = (type) => {
@@ -54,14 +66,15 @@ export default {
       }
       const routeName = routeMap[type]
       if (routeName) {
-        router.push({ name: routeName })
+        safePush({ name: routeName })
       }
     }
 
     const navigateToDeviceVerification = (deviceType) => {
-      router.push({ 
+      // 兼容中文/空格参数；Vue Router 会自动编码
+      safePush({ 
         name: 'device-verification', 
-        params: { deviceType } 
+        params: { deviceType }
       })
     }
 
