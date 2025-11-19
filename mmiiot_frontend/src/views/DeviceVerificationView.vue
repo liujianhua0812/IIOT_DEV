@@ -149,6 +149,15 @@ export default {
   setup() {
     const route = useRoute()
     
+    // 英文到中文设备类型映射
+    const deviceTypeMapping = {
+      'hikvision-camera': '海康工业相机',
+      'siemens-motor-driver': '西门子电机驱动器',
+      'tsn-switch': 'TSN交换机',
+      'temperature-sensor': '温度传感器',
+      'ethercat-motor-driver': 'EtherCat电机驱动器'
+    }
+
     const deviceTypes = [
       { type: '海康工业相机', name: '海康工业相机', modal: 'EtherNET', protocol: 'Ethernet Protocol', icon: '📷' },
       { type: '西门子电机驱动器', name: '西门子电机驱动器', modal: 'profiNet', protocol: 'ProfiNet Protocol', icon: '⚙️' },
@@ -617,7 +626,9 @@ export default {
     onMounted(() => {
       const deviceType = route.params.deviceType
       if (deviceType) {
-        selectDeviceType(deviceType)
+        // 如果是英文设备类型，转换为中文
+        const chineseType = deviceTypeMapping[deviceType] || deviceType
+        selectDeviceType(chineseType)
       }
     })
 

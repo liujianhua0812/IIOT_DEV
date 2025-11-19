@@ -6,15 +6,15 @@
     </header>
 
     <section class="grid">
-      <article class="card" @click="navigateToDeviceVerification('海康工业相机')">
+      <article class="card" @click="navigateToDeviceVerification('hikvision-camera')">
         <h2>设备可信认证</h2>
         <p>融合链路、设备、模型、任务多维指标，实时安全态势感知。</p>
         <div class="chip-group device-chip-group" @click.stop>
-          <button class="chip" @click="navigateToDeviceVerification('海康工业相机')">海康工业相机（Ethernet Protocol）</button>
-          <button class="chip" @click="navigateToDeviceVerification('西门子电机驱动器')">西门子电机驱动器（ProfiNet Protocol）</button>
-          <button class="chip" @click="navigateToDeviceVerification('TSN交换机')">TSN交换机（TSN Protocol）</button>
-          <button class="chip" @click="navigateToDeviceVerification('温度传感器')">温度传感器（Modbus Protocol）</button>
-          <button class="chip" @click="navigateToDeviceVerification('EtherCat电机驱动器')">EtherCat电机驱动器（EtherCat Protocol）</button>
+          <button class="chip" @click="navigateToDeviceVerification('hikvision-camera')">海康工业相机（Ethernet Protocol）</button>
+          <button class="chip" @click="navigateToDeviceVerification('siemens-motor-driver')">西门子电机驱动器（ProfiNet Protocol）</button>
+          <button class="chip" @click="navigateToDeviceVerification('tsn-switch')">TSN交换机（TSN Protocol）</button>
+          <button class="chip" @click="navigateToDeviceVerification('temperature-sensor')">温度传感器（Modbus Protocol）</button>
+          <button class="chip" @click="navigateToDeviceVerification('ethercat-motor-driver')">EtherCat电机驱动器（EtherCat Protocol）</button>
         </div>
       </article>
       <article class="card" @click="navigateToAccessControl('端侧模型访问控制')">
@@ -69,9 +69,8 @@ export default {
     }
 
     const navigateToDeviceVerification = (deviceType) => {
-      // 使用路径方式传递中文参数，避免 params 编码问题
-      const encodedType = encodeURIComponent(deviceType)
-      return router.push(`/security/device-verification/${encodedType}`).catch(err => {
+      // 使用英文设备类型作为路由参数
+      return router.push(`/security/device-verification/${deviceType}`).catch(err => {
         // 忽略导航重复等可预期的错误
         if (err.name !== 'NavigationDuplicated') {
           console.warn('导航错误:', err)
