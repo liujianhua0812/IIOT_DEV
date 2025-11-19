@@ -141,7 +141,7 @@ function handleAlert(data) {
 }
 
 // API + Polling
-const API_BASE = 'http://localhost:12345/api'
+const API_BASE = 'http://47.98.175.223:12345/api'
 const pollers = []
 function clearAllIntervals() {
   while (pollers.length) {
