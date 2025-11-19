@@ -11,6 +11,14 @@ export const fetchHomeDeployments = () => apiClient.get('/api/home/deployments')
 export const fetchInProgressOrders = () => apiClient.get('/api/orders/in-progress')
 export const fetchSimulationEvents = (limit = 50) =>
   apiClient.get('/api/simulation/events', { params: { limit } })
+<<<<<<< HEAD
+=======
+export const startSimulation = () => apiClient.post('/api/simulation/start')
+export const stopSimulation = () => apiClient.post('/api/simulation/stop')
+export const clearSimulationEvents = () => apiClient.post('/api/simulation/clear')
+export const getSimulationStatus = () => apiClient.get('/api/simulation/status')
+export const resetOrdersToInitialState = () => apiClient.post('/api/simulation/reset-orders')
+>>>>>>> 584358bf7f854ab3c5dfc3a9fa3bb2c7a0c5096c
 
 export const fetchDevices = (params = {}) => apiClient.get('/api/devices', { params })
 

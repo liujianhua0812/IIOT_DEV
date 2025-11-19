@@ -1,143 +1,3 @@
-.order-meta {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: rgba(214, 232, 255, 0.6);
-}
-
-.log-panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.log-panel-header h3 {
-  margin: 0;
-  font-size: 18px;
-  color: #ffffff;
-}
-
-.log-panel-header p {
-  margin: 4px 0 0;
-  color: rgba(214, 232, 255, 0.65);
-  font-size: 13px;
-}
-
-.log-total {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: rgba(73, 197, 255, 0.2);
-  color: #49c5ff;
-  font-weight: 600;
-}
-
-.log-section {
-  margin-top: 24px;
-  background: rgba(7, 27, 44, 0.85);
-  border-radius: 16px;
-  border: 1px solid rgba(88, 178, 255, 0.15);
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.log-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  height: 450px;
-  max-height: 450px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-right: 8px;
-  box-sizing: border-box;
-}
-
-.log-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.log-list::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 3px;
-}
-
-.log-list::-webkit-scrollbar-thumb {
-  background: rgba(88, 178, 255, 0.3);
-  border-radius: 3px;
-}
-
-.log-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(88, 178, 255, 0.5);
-}
-
-.log-item {
-  border: 1px solid rgba(88, 178, 255, 0.08);
-  border-radius: 10px;
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.18);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex-shrink: 0;
-  min-height: fit-content;
-}
-
-.log-line {
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  color: #e6f1ff;
-  line-height: 1.5;
-  word-break: break-all;
-}
-
-.log-formatted {
-  display: block;
-  white-space: pre-wrap;
-}
-
-.log-top {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-}
-
-.log-stage {
-  color: #ffd04b;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.log-time {
-  color: rgba(214, 232, 255, 0.6);
-}
-
-.log-message {
-  font-size: 13px;
-  color: #e6f1ff;
-}
-
-.log-meta {
-  display: flex;
-  gap: 12px;
-  font-size: 12px;
-  color: rgba(214, 232, 255, 0.6);
-}
-
-@media (max-width: 1200px) {
-  .machine-content {
-    flex-direction: column;
-  }
-
-  .side-panels {
-    width: 100%;
-  }
-}
 <script setup>
 import { onMounted, onUnmounted, ref, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
@@ -148,6 +8,11 @@ import {
   fetchHomeDeployments,
   fetchHomeOverview,
   fetchInProgressOrders,
+  startSimulation,
+  stopSimulation,
+  clearSimulationEvents,
+  getSimulationStatus,
+  resetOrdersToInitialState,
 } from '../services/api'
 
 const router = useRouter()
@@ -161,6 +26,8 @@ const orderError = ref('')
 const inProgressOrders = ref([])
 const simulationLogs = ref([])
 const simulationError = ref('')
+const simulationRunning = ref(false)
+const currentProducingOrderCode = ref(null) // 当前正在生产的订单代码
 let socket = null
 
 const loadData = async () => {
@@ -230,6 +97,29 @@ const connectWebSocket = () => {
     const newLogs = [event, ...simulationLogs.value]
     // Keep only the latest 20 events
     simulationLogs.value = newLogs.slice(0, 20)
+    
+    // Track current producing order
+    if (event.order_code) {
+      // When order starts (order_in_progress or order_pick), set as current producing order
+      if (event.stage === 'order_in_progress' || event.stage === 'order_pick') {
+        currentProducingOrderCode.value = event.order_code
+      }
+      // When order is completed, clear current producing order, decrement counter, and update list
+      else if (event.stage === 'order_completed') {
+        currentProducingOrderCode.value = null
+        updateOrderOnCompletion(event.order_code)
+      }
+      // Update order list when a product is completed (to show progress)
+      else if (event.stage === 'product_completed') {
+        updateOrderOnCompletion(event.order_code)
+      }
+    }
+  })
+
+  // Listen for simulation cleared event
+  socket.on('simulation_cleared', () => {
+    console.log('Simulation events cleared')
+    simulationLogs.value = []
   })
 }
 
@@ -254,20 +144,126 @@ const formatLogTime = (value) => {
   return date.toLocaleTimeString('zh-CN', { hour12: false })
 }
 
+const getDisplayCompleted = (order) => {
+  if (!order) return 0
+  return order.status === 'in_progress' ? (order.completed || 0) : 0
+}
+
+const getDisplayPending = (order) => {
+  if (!order) return 0
+  if (order.status === 'in_progress') {
+    if (typeof order.pending === 'number') return order.pending
+    return Math.max((order.quantity || 0) - (order.completed || 0), 0)
+  }
+  return order.quantity || 0
+}
+
 const getOrderProgress = (order) => {
   if (!order?.quantity) return 0
-  const pct = (order.completed / order.quantity) * 100
+  const pct = (getDisplayCompleted(order) / order.quantity) * 100
   return Math.min(Math.max(Math.round(pct), 0), 100)
 }
 
-const pendingCount = (order) => {
-  if (!order) return 0
-  return order.pending ?? Math.max((order.quantity || 0) - (order.completed || 0), 0)
+// Update order when completion event is received
+const updateOrderOnCompletion = async (orderCode) => {
+  try {
+    // 重新加载所有订单列表（scheduled + in_progress）
+    // API 会将 in_progress 状态的订单置顶，前端会根据状态高亮显示
+    const orderResponse = await fetchInProgressOrders()
+    if (orderResponse.data && orderResponse.data.orders) {
+      inProgressOrders.value = orderResponse.data.orders
+    } else {
+      inProgressOrders.value = []
+    }
+  } catch (error) {
+    console.error('Failed to update orders:', error)
+  }
+}
+
+// Reload orders data
+const reloadOrders = async () => {
+  orderLoading.value = true
+  orderError.value = ''
+  try {
+    const orderResponse = await fetchInProgressOrders()
+    if (orderResponse.data && orderResponse.data.orders) {
+      inProgressOrders.value = orderResponse.data.orders
+    } else {
+      inProgressOrders.value = []
+    }
+  } catch (error) {
+    orderError.value = '订单数据加载失败'
+    console.error(error)
+  } finally {
+    orderLoading.value = false
+  }
+}
+
+// Start production simulation
+const handleStartProduction = async () => {
+  try {
+    // 1. 重置订单和产品状态为初始状态，清空所有上次模拟生产产生的数据
+    // 这会清空所有订单和产品的状态、生产时间等数据，确保回到初始化状态
+    await resetOrdersToInitialState()
+    
+    // 2. 清空现有日志，确保生产日志也是初始化状态
+    await clearSimulationEvents()
+    simulationLogs.value = []
+    currentProducingOrderCode.value = null // 重置当前生产订单
+    
+    // 3. 重新加载订单（此时应该都是初始状态 scheduled，已完成数为0）
+    await reloadOrders()
+    
+    // 4. 启动模拟
+    await startSimulation()
+    simulationRunning.value = true
+    
+    // 5. 验证状态
+    const statusResponse = await getSimulationStatus()
+    if (statusResponse.data) {
+      simulationRunning.value = statusResponse.data.running
+    }
+  } catch (error) {
+    console.error('Failed to start production:', error)
+    simulationError.value = '启动生产失败: ' + (error.response?.data?.error || error.message)
+  }
+}
+
+// Stop production simulation
+const handleStopProduction = async () => {
+  try {
+    await stopSimulation()
+    simulationRunning.value = false
+    currentProducingOrderCode.value = null // 清除当前生产订单
+    
+    // 停止生产时，后端已经重置了所有订单和产品状态，并清空了日志
+    // 前端也需要清空日志显示，并重新加载订单列表（此时所有订单应该都是初始状态）
+    simulationLogs.value = []
+    
+    // 重新加载订单列表（此时所有订单应该都是 scheduled 状态，已完成数为0）
+    await reloadOrders()
+  } catch (error) {
+    console.error('Failed to stop production:', error)
+    simulationError.value = '停止生产失败'
+  }
+}
+
+// Check simulation status on mount
+const checkSimulationStatus = async () => {
+  try {
+    const statusResponse = await getSimulationStatus()
+    if (statusResponse.data) {
+      simulationRunning.value = statusResponse.data.running
+    }
+  } catch (error) {
+    console.error('Failed to check simulation status:', error)
+  }
 }
 
 onMounted(() => {
   loadData()
   connectWebSocket()
+  checkSimulationStatus()
 })
 
 onUnmounted(() => {
@@ -295,15 +291,21 @@ onUnmounted(() => {
             <div class="order-panel-header">
               <div>
                 <h3>执行中订单</h3>
-                <p>当前状态为 In Progress 的订单</p>
+                <p>所有生产任务（当前正在生产的订单已高亮并置顶）</p>
               </div>
-              <span class="order-total">{{ inProgressOrders.length }}</span>
             </div>
             <div v-if="orderLoading" class="panel-state">订单数据加载中...</div>
             <div v-else-if="orderError" class="panel-state error-state">{{ orderError }}</div>
             <div v-else-if="!inProgressOrders.length" class="panel-state">暂无执行中的生产订单</div>
             <div v-else class="order-list">
-              <div v-for="order in inProgressOrders" :key="order.order_id" class="order-card">
+              <div 
+                v-for="order in inProgressOrders" 
+                :key="order.order_id" 
+                class="order-card"
+                :class="{ 
+                  'order-card-active': currentProducingOrderCode === order.order_code 
+                }"
+              >
                 <div class="order-card-header">
                   <div>
                     <div class="order-code">{{ order.order_code || '未命名订单' }}</div>
@@ -316,8 +318,8 @@ onUnmounted(() => {
                     <span class="progress-fill" :style="{ width: `${getOrderProgress(order)}%` }"></span>
                   </div>
                   <div class="progress-stats">
-                    <span>已完成 {{ order.completed }}</span>
-                    <span>待完成 {{ pendingCount(order) }}</span>
+                    <span>已完成 {{ getDisplayCompleted(order) }}</span>
+                    <span>待完成 {{ getDisplayPending(order) }}</span>
                   </div>
                 </div>
                 <div class="order-meta">
@@ -335,10 +337,27 @@ onUnmounted(() => {
             <h3>日志</h3>
             <p>生产执行过程实时反馈</p>
           </div>
-          <span class="log-total">{{ simulationLogs.length }}</span>
+          <div class="log-header-actions">
+            <div class="simulation-controls">
+              <button 
+                @click="handleStartProduction" 
+                class="btn-start"
+                :disabled="orderLoading || simulationRunning"
+              >
+                开始生产
+              </button>
+              <button 
+                @click="handleStopProduction" 
+                class="btn-stop"
+                :disabled="!simulationRunning"
+              >
+                停止生产
+              </button>
+            </div>
+          </div>
         </div>
         <div v-if="simulationError" class="panel-state error-state">{{ simulationError }}</div>
-        <div v-else-if="!simulationLogs.length" class="panel-state">暂无仿真事件</div>
+        <div v-else-if="!simulationLogs.length" class="panel-state"></div>
         <div v-else class="log-list" style="height: 450px; max-height: 450px; overflow-y: auto; overflow-x: hidden;">
           <div v-for="log in simulationLogs" :key="log.id" class="log-item">
             <div class="log-line">
@@ -576,19 +595,6 @@ onUnmounted(() => {
   font-size: 13px;
 }
 
-.order-total {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #49c5ff, #36a3f7);
-  font-weight: 700;
-  font-size: 18px;
-  color: #0b2338;
-}
-
 .panel-state {
   padding: 18px;
   text-align: center;
@@ -619,6 +625,13 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  transition: all 0.3s ease;
+}
+
+.order-card-active {
+  border: 2px solid #4ade80;
+  box-shadow: 0 0 16px rgba(74, 222, 128, 0.4);
+  background: rgba(74, 222, 128, 0.08);
 }
 
 .order-card-header {
@@ -675,6 +688,158 @@ onUnmounted(() => {
   justify-content: space-between;
   font-size: 12px;
   color: rgba(214, 232, 255, 0.6);
+}
+
+.log-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.log-panel-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #ffffff;
+}
+
+.log-panel-header p {
+  margin: 4px 0 0;
+  color: rgba(214, 232, 255, 0.65);
+  font-size: 13px;
+}
+
+.log-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.simulation-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-start,
+.btn-stop {
+  padding: 12px 28px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  letter-spacing: 1px;
+  font-family: inherit;
+}
+
+.btn-start {
+  background: linear-gradient(135deg, #4ade80, #22c55e);
+  color: #0b2338;
+  box-shadow: 0 16px 32px rgba(74, 222, 128, 0.25);
+}
+
+.btn-start:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 38px rgba(74, 222, 128, 0.35);
+}
+
+.btn-start:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-stop {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #ffffff;
+  box-shadow: 0 16px 32px rgba(239, 68, 68, 0.25);
+}
+
+.btn-stop:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 38px rgba(239, 68, 68, 0.35);
+}
+
+.btn-stop:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.log-section {
+  margin-top: 24px;
+  background: rgba(7, 27, 44, 0.85);
+  border-radius: 16px;
+  border: 1px solid rgba(88, 178, 255, 0.15);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 450px;
+  max-height: 450px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 8px;
+  box-sizing: border-box;
+}
+
+.log-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.log-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.log-list::-webkit-scrollbar-thumb {
+  background: rgba(88, 178, 255, 0.3);
+  border-radius: 3px;
+}
+
+.log-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(88, 178, 255, 0.5);
+}
+
+.log-item {
+  border: 1px solid rgba(88, 178, 255, 0.08);
+  border-radius: 10px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+  min-height: fit-content;
+}
+
+.log-line {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: #e6f1ff;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.log-formatted {
+  display: block;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 1200px) {
+  .machine-content {
+    flex-direction: column;
+  }
+
+  .side-panels {
+    width: 100%;
+  }
 }
 </style>
 
