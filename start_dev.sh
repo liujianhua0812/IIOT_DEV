@@ -67,6 +67,14 @@ if [ ! -d "TellhowTraffic/node_modules" ]; then
     cd ..
 fi
 
+# 检查 NPU_schedule 依赖（新增）
+if [ ! -d "NPU_schedule/node_modules" ]; then
+    echo -e "${YELLOW}警告: NPU_schedule 依赖未安装，正在安装...${NC}"
+    cd NPU_schedule
+    npm install
+    cd ..
+fi
+
 # 创建日志目录
 mkdir -p logs
 
@@ -137,6 +145,16 @@ echo -e "${GREEN}TellhowTraffic 已启动 (PID: $TRAFFIC_PID)${NC}"
 echo "  日志文件: logs/tellhowtraffic.log"
 echo "  访问地址: http://localhost:10065"
 
+# 启动 NPU_schedule（新增，端口 10075）
+echo -e "${GREEN}正在启动 NPU_schedule...${NC}"
+cd NPU_schedule
+nohup npm run dev > ../logs/npu_schedule.log 2>&1 &
+NPU_PID=$!
+cd ..
+echo -e "${GREEN}NPU_schedule 已启动 (PID: $NPU_PID)${NC}"
+echo "  日志文件: logs/npu_schedule.log"
+echo "  访问地址: http://localhost:10075"  # 新增端口
+
 # 保存 PID 到文件
 echo "$BACKEND_PID" > logs/backend.pid
 echo "$MMI_PID" > logs/mmiiot_frontend.pid
@@ -144,6 +162,8 @@ echo "$ADMIN_PID" > logs/admin_frontend.pid
 echo "$FMS_PID" > logs/lenovofms.pid
 echo "$PLM_PID" > logs/lenovoplm.pid
 echo "$TRAFFIC_PID" > logs/tellhowtraffic.pid
+echo "$NPU_PID" > logs/npu_schedule.pid  # 新增 PID 文件
+
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${GREEN}启动完成！${NC}"
@@ -154,6 +174,7 @@ echo "管理前端: http://localhost:10062"
 echo "LenovoFMS: http://localhost:10063"
 echo "LenovoPLM: http://localhost:10064"
 echo "TellhowTraffic: http://localhost:10065"
+echo "NPU_schedule: http://localhost:10075"  # 新增访问地址
 echo "后端: http://localhost:10060"
 echo ""
 echo "查看日志:"
@@ -163,6 +184,7 @@ echo "  管理前端: tail -f logs/admin_frontend.log"
 echo "  LenovoFMS: tail -f logs/lenovofms.log"
 echo "  LenovoPLM: tail -f logs/lenovoplm.log"
 echo "  TellhowTraffic: tail -f logs/tellhowtraffic.log"
+echo "  NPU_schedule: tail -f logs/npu_schedule.log"  # 新增日志查看
 echo ""
 echo "停止服务: ./stop.sh"
 echo ""

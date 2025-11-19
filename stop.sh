@@ -112,6 +112,25 @@ else
     fi
 fi
 
+# 停止 NPU_schedule
+if [ -f "logs/npu_schedule.pid" ]; then
+    NPU_PID=$(cat logs/npu_schedule.pid)
+    if ps -p $NPU_PID > /dev/null 2>&1; then
+        kill $NPU_PID 2>/dev/null || true
+        echo -e "${GREEN}NPU_schedule 已停止 (PID: $NPU_PID)${NC}"
+    else
+        echo -e "${YELLOW}NPU_schedule 未运行${NC}"
+    fi
+    rm -f logs/npu_schedule.pid
+else
+    # 通过端口 10075 兜底查找（与启动脚本端口一致）
+    NPU_PID=$(lsof -ti:10075 2>/dev/null || true)
+    if [ ! -z "$NPU_PID" ]; then
+        kill $NPU_PID 2>/dev/null || true
+        echo -e "${GREEN}NPU_schedule 已停止 (PID: $NPU_PID)${NC}"
+    fi
+fi
+
 # 清理可能的残留进程
 pkill -f "python.*run_dev.py" 2>/dev/null || true
 pkill -f "python.*run_prod.py" 2>/dev/null || true

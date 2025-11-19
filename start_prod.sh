@@ -65,6 +65,14 @@ export VITE_API_BASE_URL=http://${DEPLOY_IP}:10060
 npm run build
 cd ..
 
+# 构建 NPU_schedule（新增：部署模式需先构建生产包）
+cd NPU_schedule
+npm install
+export VITE_API_BASE_URL=http://${DEPLOY_IP}:10060
+npm run build
+cd ..
+
+
 # 创建日志目录
 mkdir -p logs
 
@@ -76,7 +84,7 @@ export FLASK_ENV=production
 export DB_HOST=192.168.34.14
 export DB_PORT=5432
 export FLASK_PORT=10060
-export CORS_ORIGINS="http://${DEPLOY_IP}:10061,http://${DEPLOY_IP}:10062,http://${DEPLOY_IP}:10063,http://${DEPLOY_IP}:10064,http://${DEPLOY_IP}:10065,http://localhost:10061,http://localhost:10062,http://localhost:10063,http://localhost:10064,http://localhost:10065"
+export CORS_ORIGINS="http://${DEPLOY_IP}:10061,http://${DEPLOY_IP}:10062,http://${DEPLOY_IP}:10063,http://${DEPLOY_IP}:10064,http://${DEPLOY_IP}:10065,http://localhost:10061,http://localhost:10062,http://localhost:10063,http://localhost:10064,http://localhost:10065,http://localhost:10075"
 nohup python run_prod.py > ../logs/backend.log 2>&1 &
 BACKEND_PID=$!
 cd ..
@@ -137,6 +145,17 @@ echo -e "${GREEN}TellhowTraffic 已启动 (PID: $TRAFFIC_PID)${NC}"
 echo "  日志文件: logs/tellhowtraffic.log"
 echo "  访问地址: http://${DEPLOY_IP}:10065"
 
+# 启动 NPU_schedule（新增，端口10075，部署模式用 npm run preview）
+echo -e "${GREEN}正在启动 NPU_schedule...${NC}"
+cd NPU_schedule
+# 部署模式用 preview 启动生产包，指定端口10075
+nohup npm run preview -- --port 10075 > ../logs/npu_schedule.log 2>&1 &
+NPU_PID=$!
+cd ..
+echo -e "${GREEN}NPU_schedule 已启动 (PID: $NPU_PID)${NC}"
+echo "  日志文件: logs/npu_schedule.log"
+echo "  访问地址: http://${DEPLOY_IP}:10075"
+
 # 保存 PID 到文件
 echo "$BACKEND_PID" > logs/backend.pid
 echo "$MMI_PID" > logs/mmiiot_frontend.pid
@@ -144,6 +163,7 @@ echo "$ADMIN_PID" > logs/admin_frontend.pid
 echo "$FMS_PID" > logs/lenovofms.pid
 echo "$PLM_PID" > logs/lenovoplm.pid
 echo "$TRAFFIC_PID" > logs/tellhowtraffic.pid
+echo "$NPU_PID" > logs/npu_schedule.pid
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${GREEN}启动完成！${NC}"
@@ -155,6 +175,7 @@ echo "LenovoFMS: http://${DEPLOY_IP}:10063"
 echo "LenovoPLM: http://${DEPLOY_IP}:10064"
 echo "TellhowTraffic: http://${DEPLOY_IP}:10065"
 echo "后端: http://${DEPLOY_IP}:10060"
+echo "NPU_schedule: http://${DEPLOY_IP}:10075"
 echo ""
 echo "查看日志:"
 echo "  后端: tail -f logs/backend.log"
@@ -163,6 +184,7 @@ echo "  管理前端: tail -f logs/admin_frontend.log"
 echo "  LenovoFMS: tail -f logs/lenovofms.log"
 echo "  LenovoPLM: tail -f logs/lenovoplm.log"
 echo "  TellhowTraffic: tail -f logs/tellhowtraffic.log"
+echo "  NPU_schedule: tail -f logs/npu_schedule.log"
 echo ""
 echo "停止服务: ./stop.sh"
 echo ""

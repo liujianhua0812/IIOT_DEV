@@ -23,8 +23,20 @@
         <p>提供任务定义、调度、执行、反馈全链路闭环管理，透明可追踪。</p>
       </article>
     </section>
+
+    <!-- 新增：算力地图组件区域（单独一行，占满宽度） -->
+    <section class="grid mt-8">
+      <article class="card full-width">
+        <!-- 引入 NPU_schedule 的 Layout 组件 -->
+        <LayoutMap />
+      </article>
+    </section>
   </div>
 </template>
+
+<script setup>
+import LayoutMap from '../components/home/LayoutMap.vue'
+</script>
 
 <style scoped>
 .page-shell {
@@ -53,12 +65,27 @@
   gap: 24px;
 }
 
+/* 新增：算力地图卡片占满宽度 */
+.full-width {
+  grid-column: 1 / -1; /* 跨所有列，占满宽度 */
+  height: 100%; /* 固定最小高度，避免组件被压缩 */
+  display: flex;
+  flex-direction: column;
+}
+
 .card {
   background: linear-gradient(155deg, rgba(9, 31, 52, 0.9), rgba(5, 24, 40, 0.92));
   border-radius: 20px;
   padding: 24px 28px;
   border: 1px solid rgba(88, 178, 255, 0.12);
   box-shadow: 0 24px 42px rgba(0, 0, 0, 0.32);
+}
+
+/* 新增：算力地图组件容器样式（继承卡片背景，避免样式冲突） */
+.card.full-width > div {
+  flex: 1; /* 让 Layout 组件占满卡片剩余空间 */
+  border-radius: 12px;
+  overflow: hidden; /* 裁剪组件内部超出部分 */
 }
 
 .card h2,
@@ -91,6 +118,11 @@
   border: 1px solid rgba(128, 214, 255, 0.24);
   font-size: 13px;
   letter-spacing: 0.8px;
+}
+
+/* 新增：margin-top 简写，避免与原有 margin-top 冲突 */
+.mt-8 {
+  margin-top: 10px;
 }
 </style>
 
