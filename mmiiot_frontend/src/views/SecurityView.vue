@@ -42,14 +42,12 @@ export default {
     
     // 包装push，避免重复导航等错误导致未捕获异常
     const safePush = (to) => {
-      try {
-        const p = router.push(to)
-        if (p && typeof p.catch === 'function') {
-          p.catch(() => {})
+      return router.push(to).catch(err => {
+        // 忽略导航重复等可预期的错误
+        if (err.name !== 'NavigationDuplicated') {
+          console.warn('导航错误:', err)
         }
-      } catch (e) {
-        // 忽略由于相同路由、参数导致的导航错误
-      }
+      })
     }
 
     const navigateToEdgeModel = () => {
