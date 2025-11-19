@@ -7,8 +7,10 @@ import sys
 os.environ["FLASK_ENV"] = "development"
 
 # 设置开发环境数据库配置
-os.environ.setdefault("DB_HOST", "166.111.80.127")
-os.environ.setdefault("DB_PORT", "15432")
+# 如果外部数据库不可用，使用内网数据库
+# 使用 os.environ[] 而不是 setdefault，确保覆盖任何已存在的值
+os.environ["DB_HOST"] = os.getenv("DB_HOST", "192.168.34.14")
+os.environ["DB_PORT"] = os.getenv("DB_PORT", "5432")
 
 # 导入并运行应用
 from app import app
@@ -20,5 +22,7 @@ if __name__ == "__main__":
     print(f"数据库: {os.environ.get('DB_HOST')}:{os.environ.get('DB_PORT')}")
     print("=" * 50)
     
-    app.run(host="0.0.0.0", port=10060, debug=True)
+    # Use SocketIO to run the app for WebSocket support
+    # allow_unsafe_werkzeug=True is needed for development mode
+    app.socketio.run(app, host="0.0.0.0", port=10060, debug=True, allow_unsafe_werkzeug=True)
 

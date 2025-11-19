@@ -3,9 +3,13 @@ import mimetypes
 import uuid
 import requests
 import secrets
+from datetime import datetime, timezone
 from flask import Flask, jsonify, request, Response, send_file
 from flask_cors import CORS
+from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
+from sqlalchemy import func, or_
+from sqlalchemy.exc import OperationalError, DatabaseError
 from database import (
     get_db,
     Device,
@@ -17,9 +21,13 @@ from database import (
     DeviceTopology,
     VideoStream,
     LaptopLabelType,
+    ProductType,
+    ProductionOrder,
+    ProductionProduct,
 )
 from sqlalchemy.orm import joinedload
 from config import MODE
+from simulation import create_simulator
 
 ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "svg", "webp"}
 
@@ -27,13 +35,157 @@ ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "svg", "webp"}
 token_store = {}
 
 
+def normalize_order_products(db):
+    """确保每个订单的产品数量与计划量一致，并全部回到 scheduled 状态"""
+    created = deleted = updated = 0
+    orders = db.query(ProductionOrder).all()
+    for order in orders:
+        quantity = max(0, order.quantity or 0)
+        products = (
+            db.query(ProductionProduct)
+            .filter(ProductionProduct.order_id == order.id)
+            .order_by(ProductionProduct.id.asc())
+            .all()
+        )
+        kept = products[:quantity]
+        extras = products[quantity:]
+        
+        for product in kept:
+            if (
+                product.status != "scheduled"
+                or product.produced_at is not None
+                or product.produced_end is not None
+            ):
+                product.status = "scheduled"
+                product.product_type_id = product.product_type_id or order.product_type_id
+                product.produced_at = None
+                product.produced_end = None
+                product.updated_at = datetime.now(timezone.utc)
+                updated += 1
+        
+        for product in extras:
+            db.delete(product)
+            deleted += 1
+        
+        existing_count = len(kept)
+        for idx in range(existing_count, quantity):
+            serial = f"{order.product_code or 'PRD'}-{order.order_code or order.id}-{idx + 1:04d}-{uuid.uuid4().hex[:6].upper()}"
+            new_product = ProductionProduct(
+                serial_number=serial,
+                order_id=order.id,
+                product_type_id=order.product_type_id,
+                status="scheduled",
+                produced_at=None,
+                produced_end=None,
+                description=f"初始化产品 {serial}",
+            )
+            db.add(new_product)
+            created += 1
+    
+    return {"created": created, "deleted": deleted, "updated": updated}
+
+
+def reset_orders_and_products(db, *, log_prefix="重置"):
+    """统一清空历史模拟数据，确保所有订单/产品回到初始状态"""
+    from datetime import datetime, timezone
+
+    orders_reset = (
+        db.query(ProductionOrder)
+        .filter(ProductionOrder.status.in_(["in_progress", "completed"]))
+        .update(
+            {
+                ProductionOrder.status: "scheduled",
+                ProductionOrder.updated_at: datetime.now(timezone.utc),
+            },
+            synchronize_session=False,
+        )
+    )
+
+    # 将所有产品都重置为 scheduled，清空历史时间戳
+    products_reset = (
+        db.query(ProductionProduct)
+        .update(
+            {
+                ProductionProduct.status: "scheduled",
+                ProductionProduct.product_type_id: ProductionProduct.product_type_id,
+                ProductionProduct.produced_at: None,
+                ProductionProduct.produced_end: None,
+                ProductionProduct.updated_at: datetime.now(timezone.utc),
+            },
+            synchronize_session=False,
+        )
+    )
+
+    normalize_stats = normalize_order_products(db)
+    db.commit()
+
+    remaining_non_scheduled = (
+        db.query(ProductionProduct)
+        .filter(
+            or_(
+                ProductionProduct.status != "scheduled",
+                ProductionProduct.status.is_(None),
+            )
+        )
+        .count()
+    )
+
+    if orders_reset > 0 or products_reset > 0:
+        print(
+            f"{log_prefix}：重置订单 {orders_reset} 个，产品 {products_reset} 条为 scheduled"
+        )
+    if normalize_stats:
+        print(
+            f"{log_prefix}：规范化产品 -> 新增 {normalize_stats['created']} 条，"
+            f"删除 {normalize_stats['deleted']} 条，重置 {normalize_stats['updated']} 条"
+        )
+    if remaining_non_scheduled > 0:
+        print(
+            f"警告：{log_prefix} 后仍有 {remaining_non_scheduled} 条产品不是 scheduled 状态"
+        )
+
+    return {
+        "orders_reset": orders_reset,
+        "products_reset": products_reset,
+        "normalize_stats": normalize_stats,
+        "remaining": remaining_non_scheduled,
+    }
+
+
 def create_app() -> Flask:
     app = Flask(__name__)
+    
+    # Initialize SocketIO
+    if MODE != "production":
+        allowed_origins_for_socketio = "*"
+    else:
+        default_origins_socketio = "http://166.111.80.127:10061,http://166.111.80.127:10062,http://166.111.80.127:10063,http://166.111.80.127:10064,http://166.111.80.127:10065,http://166.111.80.127:10066,http://localhost:10061,http://localhost:10062,http://localhost:10063,http://localhost:10064,http://localhost:10065,http://localhost:10066"
+        cors_origins_env = os.getenv("CORS_ORIGINS", default_origins_socketio)
+        allowed_origins_for_socketio = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+    socketio = SocketIO(app, cors_allowed_origins=allowed_origins_for_socketio, async_mode='threading')
+    app.socketio = socketio
+    
+    try:
+        app.production_simulator = create_simulator()
+        # Set WebSocket callback for simulator
+        if app.production_simulator:
+            def websocket_push(event):
+                # Broadcast to all connected clients immediately
+                # In Flask-SocketIO, emit without room parameter broadcasts to all clients in the namespace
+                try:
+                    socketio.emit('simulation_event', event, namespace='/simulation')
+                    print(f"WebSocket event sent: {event.get('stage', 'unknown')} - {event.get('message', '')[:50]}")
+                except Exception as e:
+                    print(f"Error sending WebSocket event: {e}")
+            app.production_simulator.set_websocket_callback(websocket_push)
+    except Exception as e:
+        print(f"生产模拟器启动失败: {e}")
+        app.production_simulator = None
     
     # 根据运行模式配置 CORS
     if MODE == "production":
         # 部署模式：限制跨域来源
-        default_origins = "http://166.111.80.127:10061,http://166.111.80.127:10062,http://166.111.80.127:10063,http://166.111.80.127:10064,http://166.111.80.127:10065,http://localhost:10061,http://localhost:10062,http://localhost:10063,http://localhost:10064,http://localhost:10065"
+        default_origins = "http://166.111.80.127:10061,http://166.111.80.127:10062,http://166.111.80.127:10063,http://166.111.80.127:10064,http://166.111.80.127:10065,http://166.111.80.127:10066,http://localhost:10061,http://localhost:10062,http://localhost:10063,http://localhost:10064,http://localhost:10065,http://localhost:10066"
         allowed_origins = os.getenv("CORS_ORIGINS", default_origins).split(",")
         # 清理空白字符
         allowed_origins = [origin.strip() for origin in allowed_origins if origin.strip()]
@@ -187,12 +339,20 @@ def register_routes(app: Flask) -> None:
                 "dispatchTasks": 95,
             }
             return jsonify(overview)
+        except (OperationalError, DatabaseError) as e:
+            print(f"数据库连接错误: {e}")
+            return jsonify({
+                "error": "数据库连接失败",
+                "message": "无法连接到数据库服务器，请检查数据库配置和网络连接"
+            }), 503
         except Exception as e:
             import traceback
 
             error_trace = traceback.format_exc()
             print(error_trace)
             return jsonify({"error": str(e), "traceback": error_trace}), 500
+        finally:
+            db.close()
 
     @app.get("/api/home/deployments")
     def home_deployments():
@@ -283,8 +443,8 @@ def register_routes(app: Flask) -> None:
     @app.get("/api/lenovofms/devices")
     def get_lenovofms_devices():
         """获取 LenovoFMS 系统的设备数据（按工位分组）和拓扑连接"""
+        db = next(get_db())
         try:
-            db = next(get_db())
             
             # 查找 LenovoFMS 应用
             # 优先通过英文名查找，如果没有则通过名称查找
@@ -377,6 +537,14 @@ def register_routes(app: Flask) -> None:
                 "devices": devices_by_station,
                 "connections": connections
             }), 200
+        except (OperationalError, DatabaseError) as e:
+            print(f"数据库连接错误: {e}")
+            return jsonify({
+                "error": "数据库连接失败",
+                "message": "无法连接到数据库服务器，请检查数据库配置和网络连接",
+                "devices": {},
+                "connections": []
+            }), 503
         except Exception as e:
             import traceback
             error_trace = traceback.format_exc()
@@ -1518,6 +1686,206 @@ def register_routes(app: Flask) -> None:
 
         relative_path = f"./data/labels/uploads/{unique_name}"
         return jsonify({"message": "上传成功", "path": relative_path}), 201
+
+    @app.get("/api/orders/in-progress")
+    def get_in_progress_orders():
+        """获取所有生产任务订单列表（scheduled + in_progress），将当前正在生产的订单置顶"""
+        db = next(get_db())
+        try:
+            # 获取所有 scheduled 和 in_progress 状态的订单
+            # 使用 CASE 语句确保 in_progress 状态的订单排在前面
+            from sqlalchemy import case
+            status_order = case(
+                (ProductionOrder.status == "in_progress", 0),
+                (ProductionOrder.status == "scheduled", 1),
+                else_=2
+            )
+            all_orders = (
+                db.query(ProductionOrder)
+                .options(joinedload(ProductionOrder.product_type))
+                .filter(ProductionOrder.status.in_(["scheduled", "in_progress"]))
+                .order_by(
+                    # 先按状态排序：in_progress (0) 在前，scheduled (1) 在后
+                    status_order.asc(),
+                    # 然后按排产日期排序
+                    ProductionOrder.scheduled_date.is_(None),
+                    ProductionOrder.scheduled_date.asc(),
+                    # 最后按 ID 排序
+                    ProductionOrder.id.asc(),
+                )
+                .all()
+            )
+
+            order_ids = [order.id for order in all_orders]
+            completed_counts = {}
+            if order_ids:
+                completed_rows = (
+                    db.query(ProductionProduct.order_id, func.count(ProductionProduct.id))
+                    .filter(ProductionProduct.order_id.in_(order_ids))
+                    .filter(ProductionProduct.status.in_(["completed", "packaged", "shipped"]))
+                    .group_by(ProductionProduct.order_id)
+                    .all()
+                )
+                completed_counts = {order_id: count for order_id, count in completed_rows}
+
+            order_data = []
+            for order in all_orders:
+                quantity = order.quantity or 0
+                # 只有当前正在执行的订单才展示实时完成进度
+                if order.status == "in_progress":
+                    completed = completed_counts.get(order.id, 0)
+                else:
+                    completed = 0
+                pending = max(quantity - completed, 0)
+                order_data.append({
+                    "order_id": order.id,
+                    "order_code": order.order_code,
+                    "product_code": order.product_code,
+                    "product_name": order.product_type.product_name if order.product_type else order.product_code,
+                    "quantity": quantity,
+                    "completed": completed,
+                    "pending": pending,
+                    "status": order.status,  # 添加状态字段，用于前端判断是否高亮
+                    "scheduled_date": order.scheduled_date.isoformat() if order.scheduled_date else None,
+                    "delivery_date": order.delivery_date.isoformat() if order.delivery_date else None,
+                })
+
+            return jsonify({"orders": order_data}), 200
+        except (OperationalError, DatabaseError) as e:
+            print(f"数据库连接错误: {e}")
+            return jsonify({
+                "error": "数据库连接失败",
+                "message": "无法连接到数据库服务器，请检查数据库配置和网络连接",
+                "orders": []
+            }), 503
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            print(error_trace)
+            return jsonify({"error": str(e), "traceback": error_trace}), 500
+        finally:
+            db.close()
+
+    @app.get("/api/simulation/events")
+    def get_simulation_events():
+        simulator = getattr(app, "production_simulator", None)
+        if not simulator:
+            return jsonify({"events": []}), 200
+        limit = request.args.get("limit", 100, type=int)
+        return jsonify({"events": simulator.get_events(limit)}), 200
+
+    @app.get("/api/simulation/status")
+    def get_simulation_status():
+        simulator = getattr(app, "production_simulator", None)
+        if not simulator:
+            return jsonify({"running": False, "events": 0}), 200
+        return jsonify({
+            "running": simulator.running,
+            "events": len(simulator.events)
+        }), 200
+
+    @app.post("/api/simulation/start")
+    def start_simulation():
+        """启动生产模拟"""
+        simulator = getattr(app, "production_simulator", None)
+        if not simulator:
+            return jsonify({"error": "模拟器未初始化"}), 500
+        if simulator.running:
+            return jsonify({"message": "模拟器已在运行", "running": True}), 200
+        simulator.start()
+        return jsonify({"message": "模拟器已启动", "running": True}), 200
+
+    @app.post("/api/simulation/stop")
+    def stop_simulation():
+        """停止生产模拟"""
+        simulator = getattr(app, "production_simulator", None)
+        if not simulator:
+            return jsonify({"error": "模拟器未初始化"}), 500
+        if not simulator.running:
+            return jsonify({"message": "模拟器未运行", "running": False}), 200
+        simulator.stop()
+        
+        db = next(get_db())
+        try:
+            reset_orders_and_products(db, log_prefix="停止生产")
+        except Exception as e:
+            db.rollback()
+            print(f"停止生产时重置订单和产品状态失败: {e}")
+        finally:
+            db.close()
+        
+        # 3. 清空所有生产日志
+        try:
+            simulator.clear_events()
+            # Broadcast clear event to all connected clients
+            try:
+                app.socketio.emit('simulation_cleared', {}, namespace='/simulation')
+            except Exception as e:
+                print(f"Error broadcasting clear event: {e}")
+        except Exception as e:
+            print(f"停止生产时清空日志失败: {e}")
+        
+        return jsonify({"message": "模拟器已停止，所有数据已重置", "running": False}), 200
+
+    @app.post("/api/simulation/clear")
+    def clear_simulation_events():
+        """清空生产日志事件"""
+        simulator = getattr(app, "production_simulator", None)
+        if not simulator:
+            return jsonify({"error": "模拟器未初始化"}), 500
+        simulator.clear_events()
+        # Broadcast clear event to all connected clients
+        try:
+            app.socketio.emit('simulation_cleared', {}, namespace='/simulation')
+        except Exception as e:
+            print(f"Error broadcasting clear event: {e}")
+        return jsonify({"message": "日志已清空", "events": 0}), 200
+
+    @app.post("/api/simulation/reset-orders")
+    def reset_orders_to_initial_state():
+        """重置所有订单和产品状态为初始状态（scheduled）"""
+        db = next(get_db())
+        try:
+            stats = reset_orders_and_products(db, log_prefix="开始生产前重置")
+            return jsonify({
+                "message": "订单状态已重置",
+                "orders_reset": stats["orders_reset"],
+                "products_reset": stats["products_reset"],
+                "normalize": stats["normalize_stats"],
+                "remaining_abnormal": stats["remaining"],
+            }), 200
+        except (OperationalError, DatabaseError) as e:
+            db.rollback()
+            print(f"数据库连接错误: {e}")
+            return jsonify({
+                "error": "数据库连接失败",
+                "message": "无法连接到数据库服务器，请检查数据库配置和网络连接"
+            }), 503
+        except Exception as e:
+            db.rollback()
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"重置订单状态失败: {error_trace}")
+            return jsonify({"error": str(e), "traceback": error_trace}), 500
+        finally:
+            db.close()
+
+    # WebSocket event handlers
+    @app.socketio.on('connect', namespace='/simulation')
+    def handle_simulation_connect():
+        """Handle WebSocket connection for simulation events."""
+        print('Client connected to simulation namespace')
+        # Send initial events if available (limit to 20)
+        simulator = getattr(app, "production_simulator", None)
+        if simulator:
+            events = simulator.get_events(20)
+            if events:
+                emit('initial_events', {'events': events})
+
+    @app.socketio.on('disconnect', namespace='/simulation')
+    def handle_simulation_disconnect():
+        """Handle WebSocket disconnection."""
+        print('Client disconnected from simulation namespace')
 
     @app.get("/api/applications")
     def get_applications():

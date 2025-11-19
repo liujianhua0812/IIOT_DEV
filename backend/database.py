@@ -1,5 +1,5 @@
 """数据库连接和模型定义"""
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Text, Boolean, Float, UniqueConstraint
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Text, Boolean, Float, UniqueConstraint, Date
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
@@ -289,6 +289,70 @@ class LaptopLabelType(Base):
 
     def __repr__(self):
         return f"<LaptopLabelType(id={self.id}, name='{self.name}', label_type='{self.label_type}')>"
+
+
+class ProductType(Base):
+    """产品类型表（笔记本机型）"""
+    __tablename__ = "product_types"
+
+    id = Column(Integer, primary_key=True, index=True, comment="产品类型ID")
+    product_code = Column(String(100), nullable=False, unique=True, comment="产品编号")
+    product_name = Column(String(200), nullable=False, comment="产品名称")
+    rule_file_path = Column(String(500), nullable=True, comment="产品规则文件路径")
+    description = Column(Text, nullable=True, comment="产品描述")
+    created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
+
+    orders = relationship("ProductionOrder", back_populates="product_type", cascade="all, delete-orphan")
+    products = relationship("ProductionProduct", back_populates="product_type")
+
+    def __repr__(self):
+        return f"<ProductType(id={self.id}, code='{self.product_code}', name='{self.product_name}')>"
+
+
+class ProductionOrder(Base):
+    """生产订单表"""
+    __tablename__ = "production_orders"
+
+    id = Column(Integer, primary_key=True, index=True, comment="订单ID")
+    order_code = Column(String(100), nullable=True, unique=True, comment="订单编号")
+    product_code = Column(String(100), nullable=False, comment="产品编号（冗余）")
+    product_type_id = Column(Integer, ForeignKey("product_types.id", ondelete="SET NULL"), nullable=True, comment="产品类型ID")
+    quantity = Column(Integer, nullable=False, default=0, comment="产品数量")
+    scheduled_date = Column(Date, nullable=True, comment="排产日期")
+    delivery_date = Column(Date, nullable=True, comment="交付日期")
+    status = Column(String(50), nullable=True, comment="订单状态")
+    remarks = Column(Text, nullable=True, comment="备注")
+    created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
+
+    product_type = relationship("ProductType", back_populates="orders")
+    products = relationship("ProductionProduct", back_populates="order", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<ProductionOrder(id={self.id}, order_code='{self.order_code}', product_code='{self.product_code}')>"
+
+
+class ProductionProduct(Base):
+    """生产产品表（具体序列号）"""
+    __tablename__ = "production_products"
+
+    id = Column(Integer, primary_key=True, index=True, comment="产品记录ID")
+    serial_number = Column(String(150), nullable=False, unique=True, comment="产品序列号")
+    order_id = Column(Integer, ForeignKey("production_orders.id", ondelete="SET NULL"), nullable=True, comment="所属订单ID")
+    product_type_id = Column(Integer, ForeignKey("product_types.id", ondelete="SET NULL"), nullable=True, comment="产品类型ID")
+    status = Column(String(50), nullable=True, comment="产品状态")
+    produced_at = Column(DateTime, nullable=True, comment="生产完成时间")
+    produced_end = Column(DateTime, nullable=True, comment="生产完成时间（精确时间点）")
+    description = Column(Text, nullable=True, comment="备注信息")
+    created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
+
+    order = relationship("ProductionOrder", back_populates="products")
+    product_type = relationship("ProductType", back_populates="products")
+
+    def __repr__(self):
+        return f"<ProductionProduct(id={self.id}, serial_number='{self.serial_number}')>"
 
 
 class User(Base):
