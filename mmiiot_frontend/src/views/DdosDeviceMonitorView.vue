@@ -47,7 +47,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 
-const API_BASE = 'http://localhost:12345/api'
+const API_BASE = 'http://47.98.175.223:12345/api'
 const router = useRouter()
 function goBack() {
   router.push({ name: 'security' })
