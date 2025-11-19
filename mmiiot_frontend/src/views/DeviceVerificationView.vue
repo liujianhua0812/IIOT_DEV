@@ -196,9 +196,8 @@ export default {
     const stepTime = 2000
 
     // API配置
-    const API_HOST = import.meta.env.VITE_API_HOST || '210.45.71.131'
-    const API_PORT = import.meta.env.VITE_API_PORT || '5001'
-    const API_BASE = `http://${API_HOST}:${API_PORT}/api`
+    // 固定后端地址
+    const API_BASE = 'http://210.45.71.131:5001/api'
     
     console.log('API_BASE:', API_BASE)
 
@@ -208,8 +207,8 @@ export default {
       if (url.startsWith('http')) {
         fullUrl = url
       } else if (url.startsWith('/api')) {
-        // 如果 URL 已经包含 /api，直接拼接
-        fullUrl = `http://${API_HOST}:${API_PORT}${url}`
+        // 如果 URL 已经包含 /api，直接拼接到基地址（不重复 /api）
+        fullUrl = `http://210.45.71.131:5001${url}`
       } else {
         // 如果 URL 不包含 /api，使用 API_BASE
         fullUrl = `${API_BASE}${url.startsWith('/') ? url : '/' + url}`
@@ -229,8 +228,8 @@ export default {
       if (url.startsWith('http')) {
         fullUrl = url
       } else if (url.startsWith('/api')) {
-        // 如果 URL 已经包含 /api，直接拼接
-        fullUrl = `http://${API_HOST}:${API_PORT}${url}`
+        // 如果 URL 已经包含 /api，直接拼接到基地址（不重复 /api）
+        fullUrl = `http://210.45.71.131:5001${url}`
       } else {
         // 如果 URL 不包含 /api，使用 API_BASE
         fullUrl = `${API_BASE}${url.startsWith('/') ? url : '/' + url}`
