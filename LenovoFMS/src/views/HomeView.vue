@@ -110,6 +110,7 @@ const connectWebSocket = () => {
         updateOrderOnCompletion(event.order_code)
       }
       // Update order list when a product is completed (to show progress)
+      // Also update metrics to refresh average cycle time
       else if (event.stage === 'product_completed') {
         updateOrderOnCompletion(event.order_code)
       }
@@ -174,6 +175,13 @@ const updateOrderOnCompletion = async (orderCode) => {
       inProgressOrders.value = orderResponse.data.orders
     } else {
       inProgressOrders.value = []
+    }
+    
+    // 当订单或产品完成时，重新加载统计数据以更新所有指标
+    // 包括：已完成订单数、已完成产品数、贴标质检告警数、平均节拍等
+    const overviewResponse = await fetchHomeOverview()
+    if (overviewResponse.data) {
+      metrics.value = overviewResponse.data
     }
   } catch (error) {
     console.error('Failed to update orders:', error)

@@ -466,6 +466,58 @@ class VideoStream(Base):
         return f"<VideoStream(id={self.id}, device_id={self.device_id}, stream_name='{self.stream_name}')>"
 
 
+class TK_Positions(Base):
+    """图块和连接线位置表"""
+    __tablename__ = "tk_positions"
+
+    id = Column(Integer, primary_key=True, index=True, comment="记录ID")
+    item_type = Column(String(20), nullable=False, comment="类型: node(图块) 或 line(连接线)")
+    item_id = Column(String(100), nullable=False, comment="图块或连接线的唯一ID")
+    base_label = Column(String(100), nullable=True, comment="图块的基础标签（仅图块有）")
+    label = Column(String(100), nullable=True, comment="图块或连接线的显示标签（仅图块有）")
+    x = Column(Float, nullable=True, comment="X坐标（百分比）")
+    y = Column(Float, nullable=True, comment="Y坐标（百分比）")
+    start_x = Column(Float, nullable=True, comment="连接线起点X坐标（仅连接线有）")
+    start_y = Column(Float, nullable=True, comment="连接线起点Y坐标（仅连接线有）")
+    end_x = Column(Float, nullable=True, comment="连接线终点X坐标（仅连接线有）")
+    end_y = Column(Float, nullable=True, comment="连接线终点Y坐标（仅连接线有）")
+    color = Column(String(20), nullable=True, comment="图块颜色（仅图块有）")
+    item_type_code = Column(String(50), nullable=True, comment="图块类型代码（仅图块有）")
+    fixed = Column(Boolean, nullable=True, default=False, comment="是否固定（仅图块有）")
+    device_counters = Column(Text, nullable=True, comment="设备计数器JSON（用于图块命名）")
+    node_id_counter = Column(Integer, nullable=True, default=0, comment="节点ID计数器")
+    connection_line_id_counter = Column(Integer, nullable=True, default=0, comment="连接线ID计数器")
+    created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
+
+    def to_dict(self):
+        """转换为字典格式"""
+        return {
+            "id": self.id,
+            "item_type": self.item_type,
+            "item_id": self.item_id,
+            "base_label": self.base_label,
+            "label": self.label,
+            "x": self.x,
+            "y": self.y,
+            "start_x": self.start_x,
+            "start_y": self.start_y,
+            "end_x": self.end_x,
+            "end_y": self.end_y,
+            "color": self.color,
+            "item_type_code": self.item_type_code,
+            "fixed": self.fixed,
+            "device_counters": self.device_counters,
+            "node_id_counter": self.node_id_counter,
+            "connection_line_id_counter": self.connection_line_id_counter,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    def __repr__(self):
+        return f"<TK_Positions(id={self.id}, item_type='{self.item_type}', item_id='{self.item_id}')>"
+
+
 def init_db():
     """初始化数据库，创建所有表"""
     Base.metadata.create_all(bind=engine)

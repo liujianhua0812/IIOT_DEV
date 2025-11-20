@@ -199,8 +199,9 @@ class ProductionSimulator:
         if not self.running:
             return
         
-        # Update product status to in_progress
+        # Update product status to in_progress and record start time
         product.status = "in_progress"
+        product.produced_at = datetime.now(timezone.utc)
         product.updated_at = datetime.now(timezone.utc)
         session.commit()
         self._log_event(

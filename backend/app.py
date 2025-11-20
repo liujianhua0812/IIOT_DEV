@@ -3,7 +3,7 @@ import mimetypes
 import uuid
 import requests
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from flask import Flask, jsonify, request, Response, send_file
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
@@ -24,6 +24,7 @@ from database import (
     ProductType,
     ProductionOrder,
     ProductionProduct,
+    TK_Positions,
 )
 from sqlalchemy.orm import joinedload
 from config import MODE
@@ -150,6 +151,20 @@ def reset_orders_and_products(db, *, log_prefix="重置"):
         "normalize_stats": normalize_stats,
         "remaining": remaining_non_scheduled,
     }
+
+
+def ensure_tk_positions_table():
+    """确保 tk_positions 表存在，如果不存在则创建"""
+    try:
+        from sqlalchemy import inspect
+        db = next(get_db())
+        inspector = inspect(db.bind)
+        if "tk_positions" not in inspector.get_table_names():
+            TK_Positions.__table__.create(db.bind, checkfirst=True)
+            print("✓ tk_positions 表已自动创建")
+        db.close()
+    except Exception as e:
+        print(f"⚠ 检查/创建 tk_positions 表时出错: {e}")
 
 
 def create_app() -> Flask:
@@ -286,6 +301,9 @@ def create_app() -> Flask:
              automatic_options=True)
 
     register_routes(app)
+    
+    # 确保 tk_positions 表存在
+    ensure_tk_positions_table()
 
     return app
 
@@ -311,28 +329,84 @@ def register_routes(app: Flask) -> None:
             )
 
             device_count = 0
-            label_type_query = db.query(LaptopLabelType)
-            label_type_count = 0
-
             if application:
                 device_count = (
                     db.query(Device)
                     .filter(Device.application_id == application.id)
                     .count()
                 )
-                label_type_count = (
-                    label_type_query
-                    .filter(
-                        (LaptopLabelType.application_id == application.id) |
-                        (LaptopLabelType.application_id.is_(None))
-                    )
-                    .count()
+
+            # 1. 支持标签类型：统计表的总记录数
+            label_type_query = db.query(LaptopLabelType)
+            if application:
+                label_type_query = label_type_query.filter(
+                    (LaptopLabelType.application_id == application.id) |
+                    (LaptopLabelType.application_id.is_(None))
                 )
-            else:
-                label_type_count = label_type_query.count()
+            label_type_count = label_type_query.count()
+
+            # 2. 支持笔记本型号：固定值 5866
+            supported_laptops = 5866
+
+            # 3. 稳定运行天数：从 2025.07.01 到当前时间计算天数
+            start_date = date(2025, 7, 1)
+            current_date = date.today()
+            stable_days = (current_date - start_date).days
+
+            # 4. 已完成订单数：稳定运行天数 * 200 + 当前完成的订单数
+            completed_orders_count = (
+                db.query(ProductionOrder)
+                .filter(ProductionOrder.status == "completed")
+                .count()
+            )
+            completed_orders_total = stable_days * 200 + completed_orders_count
+
+            # 5. 已完成产品数：稳定运行天数 * 200 * 4 + 当前已完成的产品数
+            completed_products_count = (
+                db.query(ProductionProduct)
+                .filter(ProductionProduct.status == "completed")
+                .count()
+            )
+            completed_products_total = stable_days * 200 * 4 + completed_products_count
+
+            # 6. 贴标质检告警数：已完成产品数 * 0.035
+            label_qc_alarms = int(completed_products_total * 0.035)
+
+            # 7. 平均节拍：计算已完成产品的平均耗时（秒）
+            # 只计算有 produced_at 和 produced_end 的产品
+            avg_cycle_time = None
+            completed_products_with_times = (
+                db.query(ProductionProduct)
+                .filter(
+                    ProductionProduct.status == "completed",
+                    ProductionProduct.produced_at.isnot(None),
+                    ProductionProduct.produced_end.isnot(None)
+                )
+                .all()
+            )
+            
+            if completed_products_with_times:
+                total_seconds = 0
+                valid_count = 0
+                for product in completed_products_with_times:
+                    if product.produced_at and product.produced_end:
+                        # 计算时间差（秒）
+                        time_diff = (product.produced_end - product.produced_at).total_seconds()
+                        if time_diff > 0:  # 确保时间差有效
+                            total_seconds += time_diff
+                            valid_count += 1
+                
+                if valid_count > 0:
+                    avg_cycle_time = round(total_seconds / valid_count, 1)
 
             overview = {
                 "labelTypes": label_type_count,
+                "supportedLaptops": supported_laptops,
+                "stableDays": stable_days,
+                "completedOrders": completed_orders_total,
+                "completedProducts": completed_products_total,
+                "labelQcAlarms": label_qc_alarms,
+                "dailyCycleTime": avg_cycle_time,
                 "deviceCount": device_count,
                 "modalTypes": 12,
                 "securityEvents": 327,
@@ -2075,6 +2149,167 @@ def register_routes(app: Flask) -> None:
         except Exception as e:
             if 'db' in locals():
                 db.rollback()
+            return jsonify({"error": str(e)}), 500
+        finally:
+            if 'db' in locals():
+                db.close()
+
+    @app.post("/api/plm/topology/save")
+    def save_topology_layout():
+        """保存图块和连接线布局"""
+        db = None
+        try:
+            db = next(get_db())
+            data = request.get_json()
+            
+            if not data:
+                return jsonify({"error": "请求数据为空"}), 400
+            
+            # 检查表是否存在，如果不存在则创建
+            from sqlalchemy import inspect
+            inspector = inspect(db.bind)
+            if "tk_positions" not in inspector.get_table_names():
+                # 表不存在，创建表
+                TK_Positions.__table__.create(db.bind, checkfirst=True)
+                print("✓ tk_positions 表已自动创建")
+            
+            # 清空原有数据
+            db.query(TK_Positions).delete()
+            
+            # 保存图块数据
+            nodes = data.get("nodes", [])
+            for node in nodes:
+                position = TK_Positions(
+                    item_type="node",
+                    item_id=node.get("id"),
+                    base_label=node.get("baseLabel"),
+                    label=node.get("label"),
+                    x=node.get("x"),
+                    y=node.get("y"),
+                    color=node.get("color"),
+                    item_type_code=node.get("type"),
+                    fixed=node.get("fixed", False),
+                )
+                db.add(position)
+            
+            # 保存连接线数据
+            lines = data.get("lines", [])
+            for line in lines:
+                position = TK_Positions(
+                    item_type="line",
+                    item_id=line.get("id"),
+                    start_x=line.get("startX"),
+                    start_y=line.get("startY"),
+                    end_x=line.get("endX"),
+                    end_y=line.get("endY"),
+                )
+                db.add(position)
+            
+            # 保存计数器数据（只保存一次，使用第一个记录存储）
+            if nodes or lines:
+                import json
+                device_counters = data.get("deviceCounters", {})
+                counters_record = TK_Positions(
+                    item_type="metadata",
+                    item_id="counters",
+                    device_counters=json.dumps(device_counters) if device_counters else None,
+                    node_id_counter=data.get("nodeIdCounter", 0),
+                    connection_line_id_counter=data.get("connectionLineIdCounter", 0),
+                )
+                db.add(counters_record)
+            
+            db.commit()
+            
+            return jsonify({
+                "message": "布局保存成功",
+                "saved_nodes": len(nodes),
+                "saved_lines": len(lines)
+            }), 200
+        except Exception as e:
+            if 'db' in locals():
+                db.rollback()
+            return jsonify({"error": str(e)}), 500
+        finally:
+            if 'db' in locals():
+                db.close()
+
+    @app.get("/api/plm/topology/load")
+    def load_topology_layout():
+        """加载图块和连接线布局"""
+        db = None
+        try:
+            db = next(get_db())
+            
+            # 检查表是否存在
+            from sqlalchemy import inspect
+            inspector = inspect(db.bind)
+            if "tk_positions" not in inspector.get_table_names():
+                # 表不存在，返回空数据
+                return jsonify({
+                    "nodes": [],
+                    "lines": [],
+                    "deviceCounters": {},
+                    "nodeIdCounter": 0,
+                    "connectionLineIdCounter": 0
+                }), 200
+            
+            # 获取所有位置数据
+            positions = db.query(TK_Positions).all()
+            
+            if not positions:
+                return jsonify({
+                    "nodes": [],
+                    "lines": [],
+                    "deviceCounters": {},
+                    "nodeIdCounter": 0,
+                    "connectionLineIdCounter": 0
+                }), 200
+            
+            nodes = []
+            lines = []
+            device_counters = {}
+            node_id_counter = 0
+            connection_line_id_counter = 0
+            
+            for pos in positions:
+                if pos.item_type == "node":
+                    nodes.append({
+                        "id": pos.item_id,
+                        "baseLabel": pos.base_label,
+                        "label": pos.label,
+                        "x": pos.x,
+                        "y": pos.y,
+                        "color": pos.color,
+                        "type": pos.item_type_code,
+                        "fixed": pos.fixed or False,
+                    })
+                elif pos.item_type == "line":
+                    lines.append({
+                        "id": pos.item_id,
+                        "startX": pos.start_x,
+                        "startY": pos.start_y,
+                        "endX": pos.end_x,
+                        "endY": pos.end_y,
+                    })
+                elif pos.item_type == "metadata":
+                    # 恢复计数器数据
+                    if pos.device_counters:
+                        try:
+                            import json
+                            device_counters = json.loads(pos.device_counters) if isinstance(pos.device_counters, str) else pos.device_counters
+                        except:
+                            device_counters = {}
+                    node_id_counter = pos.node_id_counter or 0
+                    connection_line_id_counter = pos.connection_line_id_counter or 0
+            
+            return jsonify({
+                "nodes": nodes,
+                "lines": lines,
+                "deviceCounters": device_counters,
+                "nodeIdCounter": node_id_counter,
+                "connectionLineIdCounter": connection_line_id_counter
+            }), 200
+        except Exception as e:
             return jsonify({"error": str(e)}), 500
         finally:
             if 'db' in locals():

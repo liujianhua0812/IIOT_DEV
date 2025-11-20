@@ -21,6 +21,12 @@ export const fetchUserProfile = () => apiClient.get('/api/auth/profile')
 
 export const updateUserProfile = (userData) => apiClient.put('/api/auth/profile', userData)
 
+// 保存图块和连接线布局
+export const saveTopologyLayout = (layoutData) => apiClient.post('/api/plm/topology/save', layoutData)
+
+// 加载图块和连接线布局
+export const loadTopologyLayout = () => apiClient.get('/api/plm/topology/load')
+
 // 添加 token 到请求头
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')

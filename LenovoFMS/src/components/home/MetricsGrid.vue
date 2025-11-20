@@ -13,35 +13,48 @@ const adminBaseURL = import.meta.env.VITE_ADMIN_BASE_URL || 'http://localhost:10
 const metricsList = computed(() => [
   {
     key: 'labelTypes',
-    label: '标签类型',
+    label: '支持标签类型',
     unit: '种',
     gradient: 'linear-gradient(135deg, #7f7bff, #5fd4ff)',
     clickable: true,
   },
   {
-    key: 'deviceCount',
-    label: '接入设备数',
-    unit: '台',
-    gradient: 'linear-gradient(135deg, #3d8bff, #1cb5e0)',
+    key: 'supportedLaptops',
+    label: '支持笔记本型号',
+    unit: '款',
+    gradient: 'linear-gradient(135deg, #ff9a9e, #fad0c4)',
+  }, 
+  {
+    key: 'stableDays',
+    label: '稳定运行天数',
+    unit: '天',
+    gradient: 'linear-gradient(135deg, #ffecd2, #fcb69f)',
   },
   {
-    key: 'modalTypes',
-    label: '模态类型',
-    unit: '类',
-    gradient: 'linear-gradient(135deg, #4facfe, #00f2fe)',
+    key: 'completedOrders',
+    label: '已完成订单数',
+    unit: '单',
+    gradient: 'linear-gradient(135deg, #a18cd1, #fbc2eb)',
   },
   {
-    key: 'securityEvents',
-    label: '安全防护次数',
+    key: 'completedProducts',
+    label: '已完成产品数',
+    unit: '件',
+    gradient: 'linear-gradient(135deg, #f6d365, #fda085)',
+  },
+  {
+    key: 'labelQcAlarms',
+    label: '贴标质检告警数',
     unit: '次',
-    gradient: 'linear-gradient(135deg, #fa709a, #fee140)',
+    gradient: 'linear-gradient(135deg, #f093fb, #f5576c)',
   },
   {
-    key: 'dispatchTasks',
-    label: '调度任务',
-    unit: '项',
-    gradient: 'linear-gradient(135deg, #84fab0, #8fd3f4)',
+    key: 'dailyCycleTime',
+    label: '平均节拍',
+    unit: '秒',
+    gradient: 'linear-gradient(135deg, #96fbc4, #f9f586)',
   },
+  
 ])
 
 const handleCardClick = (item) => {
