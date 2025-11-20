@@ -114,6 +114,9 @@ class ProductionSimulator:
                 )
 
                 for product in products:
+                    # Check if simulation should stop before processing each product
+                    if not self.running:
+                        break
                     if product.status != "scheduled":
                         continue
                     # Create a new RealtimeEnvironment for each product
@@ -140,18 +143,48 @@ class ProductionSimulator:
                         + self.station_times.qc_time
                         + 5.0  # buffer
                     )
-                    # Run the environment until the process completes
-                    env.run(until=total_time)
+                    # Run the environment until process completes or simulation stops
+                    # Since _simulate_product checks self.running at each step and returns early if stopped,
+                    # the process will end when self.running becomes False, and env.run() will return immediately
+                    try:
+                        env.run(until=total_time)
+                    except simpy.events.EmptySchedule:
+                        # Process completed or stopped
+                        pass
+                    # If stopped, break out of product loop
+                    if not self.running:
+                        break
 
-                order.status = "completed"
-                order.updated_at = datetime.now(timezone.utc)
-                session.commit()
-                self._log_event(
-                    "order_completed",
-                    "订单全部产品完成",
-                    order_id=order.id,
-                    order_code=order.order_code,
-                )
+                # Only mark order as completed if simulation is still running AND all products are completed
+                if self.running:
+                    # Refresh the order and products from database to get latest status
+                    session.refresh(order)
+                    # Check if all products in this order are completed
+                    remaining_products = (
+                        session.query(ProductionProduct)
+                        .filter(ProductionProduct.order_id == order.id)
+                        .filter(ProductionProduct.status.in_(["scheduled", "in_progress"]))
+                        .count()
+                    )
+                    
+                    # Only mark order as completed if all products are completed
+                    if remaining_products == 0:
+                        order.status = "completed"
+                        order.updated_at = datetime.now(timezone.utc)
+                        session.commit()
+                        self._log_event(
+                            "order_completed",
+                            "订单全部产品完成",
+                            order_id=order.id,
+                            order_code=order.order_code,
+                        )
+                    else:
+                        # Order still has products to process, keep it as in_progress
+                        # Don't commit here, let the order remain in_progress for next iteration
+                        session.commit()
+                        # Break out of the while loop to wait for next poll cycle
+                        # This ensures we don't immediately pick the next order
+                        break
             except Exception as exc:
                 session.rollback()
                 self._log_event("error", f"模拟异常: {exc}")
@@ -162,6 +195,10 @@ class ProductionSimulator:
     # ----------------- simulation helpers -----------------
     def _simulate_product(self, env: RealtimeEnvironment, session, order, product):
         """SimPy process to simulate a single product through the production line."""
+        # Check if simulation should stop
+        if not self.running:
+            return
+        
         # Update product status to in_progress
         product.status = "in_progress"
         product.updated_at = datetime.now(timezone.utc)
@@ -176,56 +213,89 @@ class ProductionSimulator:
         )
 
         # Belt to scanner
+        if not self.running:
+            return
         yield from self._step(env, self.station_times.belt_to_scanner, "belt", "设备移动到扫码位", order, product)
         
         # Scan
+        if not self.running:
+            return
         yield from self._step(env, self.station_times.scan_time, "scanner", "扫码相机读码", order, product)
         
         # Belt to stop position
+        if not self.running:
+            return
         yield from self._step(env, self.station_times.belt_to_stop, "belt", "移动到挡停位置", order, product)
         
         # Jack up and light on
+        if not self.running:
+            return
         yield from self._step(env, self.station_times.jack_up, "lifters", "顶升气缸抬起，光源点亮", order, product)
         
         # Query MBI server
+        if not self.running:
+            return
         yield from self._step(env, self.station_times.mbi_query, "mbi", "MBI Server 返回产品参数", order, product)
 
         # Label cycles
         for cycle in range(self.labels_per_product):
+            if not self.running:
+                return
             cycle_label = f"{cycle + 1}/{self.labels_per_product}"
             yield from self._step(env, self.station_times.feeder_time, "feeder", f"进料器供料 {cycle_label}", order, product)
+            if not self.running:
+                return
             yield from self._step(env, self.station_times.robot_pick, "robot", f"机械臂取标 {cycle_label}", order, product)
+            if not self.running:
+                return
             yield from self._step(env, self.station_times.robot_to_loc_cam, "robot", "机械臂移动至定位相机", order, product)
+            if not self.running:
+                return
             yield from self._step(env, self.station_times.locating_time, "camera", "定位相机校准", order, product)
+            if not self.running:
+                return
             yield from self._step(env, self.station_times.robot_to_device, "robot", "机械臂移动至设备", order, product)
+            if not self.running:
+                return
             yield from self._step(env, self.station_times.labeling_time, "labeling", "执行贴码", order, product)
 
         # Jack down and light off
+        if not self.running:
+            return
         yield from self._step(env, self.station_times.jack_down, "lifters", "顶升气缸复位，光源熄灭", order, product)
         
         # Belt to inspection
+        if not self.running:
+            return
         yield from self._step(env, self.station_times.belt_to_inspection, "belt", "设备前往质检位", order, product)
         
         # QC camera
+        if not self.running:
+            return
         yield from self._step(env, self.station_times.qc_time, "qc", "质检相机拍照", order, product)
 
-        # Update product status to completed
-        product.status = "completed"
-        product.produced_end = datetime.now(timezone.utc)
-        product.updated_at = datetime.now(timezone.utc)
-        session.commit()
+        # Update product status to completed only if still running
+        if self.running:
+            product.status = "completed"
+            product.produced_end = datetime.now(timezone.utc)
+            product.updated_at = datetime.now(timezone.utc)
+            session.commit()
 
-        self._log_event(
-            "product_completed",
-            f"产品 {product.serial_number} 完成",
-            order_id=order.id,
-            order_code=order.order_code,
-            product_id=product.id,
-            product_sn=product.serial_number,
-        )
+            self._log_event(
+                "product_completed",
+                f"产品 {product.serial_number} 完成",
+                order_id=order.id,
+                order_code=order.order_code,
+                product_id=product.id,
+                product_sn=product.serial_number,
+            )
 
     def _step(self, env: RealtimeEnvironment, duration: float, stage: str, message: str, order, product):
         """SimPy process step that logs and waits for the specified duration."""
+        # Check if simulation should stop before logging
+        if not self.running:
+            return
+        
         self._log_event(
             stage,
             message,
@@ -234,7 +304,15 @@ class ProductionSimulator:
             product_id=product.id if product else None,
             product_sn=product.serial_number if product else None,
         )
-        yield env.timeout(duration)
+        
+        # Wait in small increments to check running status frequently
+        elapsed = 0.0
+        check_interval = 0.1  # Check every 0.1 seconds
+        while elapsed < duration and self.running:
+            remaining = duration - elapsed
+            wait_time = min(check_interval, remaining)
+            yield env.timeout(wait_time)
+            elapsed += wait_time
 
     # ----------------- event utils -----------------
     def set_websocket_callback(self, callback):
@@ -319,9 +397,14 @@ class ProductionSimulator:
         limit = max(1, min(limit, len(self.events)))
         return list(self.events)[:limit]
 
+    def clear_events(self):
+        """Clear all events from the queue."""
+        self.events.clear()
+
 
 def create_simulator():
     simulator = ProductionSimulator()
-    simulator.start()
+    # Don't auto-start, let API control it
+    # simulator.start()
     return simulator
 

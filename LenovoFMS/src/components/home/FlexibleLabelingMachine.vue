@@ -114,26 +114,15 @@ const loadDevices = async () => {
     }
   } catch (error) {
     console.error('加载设备数据失败:', error)
-    // 如果 API 失败，使用备份数据
-    if (devices_backup) {
-      devices.value = {
-        read: devices_backup.read || [],
-        label: devices_backup.label || [],
-        pick: devices_backup.pick || [],
-        qc: devices_backup.qc || [],
-        network: devices_backup.network || []
-      }
-      devicesLoaded.value = true
-    } else {
-      devices.value = {
-        read: [],
-        label: [],
-        pick: [],
-        qc: [],
-        network: []
-      }
-      devicesLoaded.value = false
+    // 如果 API 失败，使用空数据
+    devices.value = {
+      read: [],
+      label: [],
+      pick: [],
+      qc: [],
+      network: []
     }
+    devicesLoaded.value = false
   }
 }
 

@@ -28,6 +28,14 @@
           <button class="chip" @click="navigateToAccessControl('视频数据访问控制')">视频数据访问控制（Video Data）</button>
         </div>
       </article>
+      <article class="card radar">
+        <h2>DDoS检测</h2>
+        <p>进入检测中枢页面，查看实时威胁、攻击链溯源与自动处置编排。</p>
+        <div class="chip-group">
+          <RouterLink class="chip chip-link" :to="{ name: 'ddos-system-status' }">系统状态</RouterLink>
+          <RouterLink class="chip chip-link" :to="{ name: 'ddos-device-monitor' }">设备监控</RouterLink>
+        </div>
+      </article>
     </section>
   </div>
 </template>
@@ -170,6 +178,31 @@ export default {
 .chip:hover {
   background: rgba(128, 214, 255, 0.2);
   border-color: rgba(128, 214, 255, 0.35);
+}
+.clickable {
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 28px 56px rgba(0, 0, 0, 0.42);
+}
+.link-reset {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.link-reset:focus-visible {
+  outline: 2px solid rgba(73, 197, 255, 0.6);
+  outline-offset: 4px;
+}
+.chip-link {
+  text-decoration: none;
+  color: inherit;
+  display: inline-block;
+}
+.chip-link:hover {
+  background: rgba(128, 214, 255, 0.18);
 }
 
 .device-chip-group .chip {

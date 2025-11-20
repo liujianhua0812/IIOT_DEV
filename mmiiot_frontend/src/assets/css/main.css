@@ -1,0 +1,12 @@
+@font-face {
+  font-family: 'DS-Digital';
+  src:
+    url(../fonts/DS-DIGI-1.ttf),
+    url(../fonts/DS-DIGII-3.ttf),
+    url(../fonts/DS-DIGIB-2.ttf),
+    url(../fonts/DS-DIGI-1.ttf);
+}
+@font-face {
+  font-family: 'led regular';
+  src: url(../fonts/DS-DIGIT.TTF);
+}
