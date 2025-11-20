@@ -1,29 +1,56 @@
 <script setup>
 import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import MetricsGrid from '../components/home/MetricsGrid.vue'
-import DeploymentMap from '../components/home/DeploymentMap.vue'
-import { fetchHomeDeployments, fetchHomeOverview } from '../services/api'
-
-const router = useRouter()
+import { fetchHomeOverview } from '../services/api'
 
 const metrics = ref({})
-const deployments = ref([])
 const loading = ref(true)
 const errorMessage = ref('')
+
+const topologyNodes = [
+  { id: 'switch', label: 'TSN交换机', x: 18, y: 46, color: '#4cc9f0', type: 'switch' },
+  { id: 'edge', label: '工控机', x: 36, y: 38, color: '#4361ee', type: 'monitor' },
+  { id: 'camera', label: '工业相机', x: 28, y: 68, color: '#3a0ca3', type: 'camera' },
+  { id: 'plc', label: 'PLC', x: 52, y: 60, color: '#f72585', type: 'plc' },
+  { id: 'robot', label: '机械臂控制器', x: 61, y: 33, color: '#ffba08', type: 'robot' },
+  { id: 'gateway', label: '可信网关', x: 77, y: 48, color: '#06d6a0', type: 'shield' },
+  { id: 'blockchain', label: '区块链节点', x: 90, y: 44, color: '#ff6b6b', type: 'chain' },
+]
+
+const topologyLinks = [
+  ['camera', 'switch'],
+  ['plc', 'switch'],
+  ['robot', 'edge'],
+  ['switch', 'edge'],
+  ['edge', 'gateway'],
+  ['gateway', 'blockchain'],
+]
+
+const deviceIcons = {
+  plc: '/plc.svg',
+  switch: '/switch.svg',
+  camera: '/camera.svg',
+  monitor: '/monitor.svg',
+  robot: '/robot.svg',
+  shield: '/indicator.svg',
+  chain: '⛓',
+}
+
+const isSvgPath = (icon) => typeof icon === 'string' && icon.endsWith('.svg')
+
+const getNodeStyle = (node) => ({
+  left: `${node.x}%`,
+  top: `${node.y}%`,
+  '--node-color': node.color,
+})
 
 const loadData = async () => {
   loading.value = true
   errorMessage.value = ''
 
   try {
-    const [overviewResponse, deploymentsResponse] = await Promise.all([
-      fetchHomeOverview(),
-      fetchHomeDeployments(),
-    ])
-
+    const overviewResponse = await fetchHomeOverview()
     metrics.value = overviewResponse.data
-    deployments.value = deploymentsResponse.data.deployments || []
   } catch (error) {
     errorMessage.value = '数据加载出现波动，请稍后重试。'
     console.error(error)
@@ -39,29 +66,66 @@ onMounted(() => {
 
 <template>
   <div class="home-view">
-    <section class="hero">
-      <div class="hero-content">
-        <h1>构建可信、敏捷的多模态工业互联</h1>
-        <p>
-          聚焦多模态感知、内生安全与智能调度，打造一体化的工业互联网中枢。实时掌握设备态势，跨模态协同运行，赋能产业数字化升级。
-        </p>
-        <div class="hero-actions">
-          <button class="primary" @click="router.push({ name: 'login' })">立即登录</button>
-          <button class="secondary">查看方案白皮书</button>
+    <MetricsGrid :metrics="metrics" />
+
+    <section class="blockchain-section">
+      <div class="section-header">
+        <div>
+          <h2>生产数据上链可视化</h2>
+          <p>生产线设备通过可信网关实时上传数据，形成区块链可信账本</p>
         </div>
+        <div class="section-tag">实时上链</div>
       </div>
-      <div class="hero-visual">
-        <div class="pulse"></div>
-        <div class="orb"></div>
-        <div class="grid"></div>
+      <div class="line-visual">
+        <div class="line-background"></div>
+        <svg class="topology-overlay" viewBox="0 0 100 70" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L6,3 L0,6 z" fill="#93c5fd" />
+            </marker>
+          </defs>
+          <line
+            v-for="(link, index) in topologyLinks"
+            :key="`link-${index}`"
+            :x1="topologyNodes.find((n) => n.id === link[0]).x"
+            :y1="topologyNodes.find((n) => n.id === link[0]).y"
+            :x2="topologyNodes.find((n) => n.id === link[1]).x"
+            :y2="topologyNodes.find((n) => n.id === link[1]).y"
+            stroke="#93c5fd"
+            stroke-width="1.2"
+            stroke-dasharray="3 2"
+            marker-end="url(#arrow)"
+            opacity="0.7"
+          />
+        </svg>
+        <div
+          v-for="node in topologyNodes"
+          :key="node.id"
+          class="device-node"
+          :style="getNodeStyle(node)"
+        >
+          <div class="device-node-icon">
+            <img
+              v-if="isSvgPath(deviceIcons[node.type])"
+              :src="deviceIcons[node.type]"
+              alt=""
+            />
+            <span v-else>{{ deviceIcons[node.type] || '●' }}</span>
+          </div>
+          <span class="device-node-label">{{ node.label }}</span>
+        </div>
+        <div class="blockchain-stack">
+          <div class="chain-layer" v-for="i in 4" :key="i" :style="{ transform: `translateZ(${i * 6}px)` }"></div>
+          <div class="chain-label">
+            <span>区块链账本</span>
+            <p>跨企业可信共享</p>
+          </div>
+        </div>
       </div>
     </section>
 
-    <MetricsGrid :metrics="metrics" />
-
     <section v-if="loading" class="loading">数据加载中...</section>
     <section v-else-if="errorMessage" class="error">{{ errorMessage }}</section>
-    <DeploymentMap v-else :deployments="deployments" />
   </div>
 </template>
 
@@ -76,123 +140,143 @@ onMounted(() => {
   min-height: calc(100vh - 80px);
 }
 
-.hero {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 48px;
-  padding: 42px 48px;
-  background: linear-gradient(135deg, rgba(11, 38, 66, 0.85), rgba(6, 25, 44, 0.9));
-  border-radius: 24px;
-  border: 1px solid rgba(88, 178, 255, 0.08);
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.32);
-}
-
-.hero-content h1 {
-  font-size: 36px;
-  margin-bottom: 18px;
-  letter-spacing: 1.6px;
-}
-
-.hero-content p {
-  font-size: 16px;
-  line-height: 1.8;
-  color: rgba(214, 232, 255, 0.78);
-  margin-bottom: 28px;
-}
-
-.hero-actions {
+.section-header {
   display: flex;
-  gap: 16px;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 20px;
 }
 
-.hero-actions .primary,
-.hero-actions .secondary {
-  padding: 12px 28px;
+.section-header h2 {
+  margin: 0;
+  font-size: 26px;
+  color: #ffffff;
+}
+
+.section-header p {
+  margin: 6px 0 0;
+  color: rgba(214, 232, 255, 0.7);
+  letter-spacing: 0.4px;
+}
+
+.section-tag {
+  padding: 6px 16px;
   border-radius: 999px;
-  font-size: 14px;
-  letter-spacing: 1px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.hero-actions .primary {
-  border: none;
-  color: #0b2338;
-  background: linear-gradient(135deg, #49c5ff, #36a3f7);
-  box-shadow: 0 16px 32px rgba(73, 197, 255, 0.25);
-}
-
-.hero-actions .primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 18px 38px rgba(73, 197, 255, 0.35);
-}
-
-.hero-actions .secondary {
-  background: transparent;
+  border: 1px solid rgba(88, 178, 255, 0.3);
   color: #80d6ff;
-  border: 1px solid rgba(128, 214, 255, 0.36);
+  font-size: 13px;
+  letter-spacing: 1px;
 }
 
-.hero-actions .secondary:hover {
-  background: rgba(128, 214, 255, 0.18);
+.blockchain-section {
+  padding: 32px;
+  background: linear-gradient(135deg, rgba(10, 32, 51, 0.9), rgba(5, 18, 30, 0.92));
+  border-radius: 24px;
+  border: 1px solid rgba(88, 178, 255, 0.12);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.28);
 }
 
-.hero-visual {
+.line-visual {
   position: relative;
-  min-height: 260px;
+  border-radius: 20px;
+  overflow: hidden;
+  min-height: 360px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.line-background {
+  position: absolute;
+  inset: 0;
+  background-image: url('/product_line.png');
+  background-size: cover;
+  background-position: center;
+  filter: saturate(1.1) brightness(0.9);
+  opacity: 0.85;
+}
+
+.topology-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.device-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: #e2e8f0;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.device-node-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  border: 1px solid var(--node-color, rgba(255, 255, 255, 0.3));
+  background: rgba(10, 20, 35, 0.8);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 6px;
 }
 
-.hero-visual .grid {
+.device-node-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+}
+
+.device-node-icon span {
+  font-size: 20px;
+}
+
+.device-node-label {
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+.blockchain-stack {
   position: absolute;
-  inset: 12%;
-  border-radius: 50%;
-  border: 1px solid rgba(128, 214, 255, 0.18);
-  background-image: radial-gradient(circle, rgba(128, 214, 255, 0.15) 1px, transparent 1px);
-  background-size: 12px 12px;
+  right: 32px;
+  top: 50%;
+  transform: translateY(-50%);
+  perspective: 600px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
-.hero-visual .orb {
-  position: absolute;
-  width: 220px;
-  height: 220px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(73, 197, 255, 0.65), rgba(11, 38, 66, 0));
-  filter: blur(2px);
-  animation: orbit 12s linear infinite;
+.chain-layer {
+  width: 110px;
+  height: 44px;
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.9), rgba(255, 175, 113, 0.9));
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(255, 135, 135, 0.35);
+  opacity: 0.9;
 }
 
-.hero-visual .pulse {
-  position: relative;
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(41, 131, 251, 0.8), rgba(6, 25, 44, 0.1));
-  box-shadow: 0 0 30px rgba(41, 131, 251, 0.6);
-  animation: pulse 3.5s ease-in-out infinite;
+.chain-label {
+  text-align: center;
+  color: #ffe5e0;
+  letter-spacing: 1px;
 }
 
-@keyframes pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.9;
-  }
-  50% {
-    transform: scale(1.1);
-    opacity: 1;
-  }
+.chain-label span {
+  font-size: 16px;
+  font-weight: 600;
 }
 
-@keyframes orbit {
-  0% {
-    transform: rotate(0deg) translateX(40px) rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg) translateX(40px) rotate(-360deg);
-  }
+.chain-label p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: rgba(255, 229, 224, 0.8);
 }
 
 .loading,

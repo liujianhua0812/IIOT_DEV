@@ -140,9 +140,13 @@ echo "  日志文件: logs/tellhowtraffic.log"
 echo "  访问地址: http://${DEPLOY_IP}:10065"
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 
 >>>>>>> af3dc14effb2fb97c5ce3caff4b7ca60e68893ef
+=======
+
+>>>>>>> 67a6c12f36420bc41d31d5c2ebe62bb334f08ba5
 # 保存 PID 到文件
 echo "$BACKEND_PID" > logs/backend.pid
 echo "$MMI_PID" > logs/mmiiot_frontend.pid
