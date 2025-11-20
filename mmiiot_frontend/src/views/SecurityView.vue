@@ -92,12 +92,6 @@
           <div class="legend-item"><span class="dot access-color"></span>细粒度访问控制</div>
           <div class="legend-item"><span class="dot ddos-color"></span>DDoS检测</div>
         </div>
-        <div class="node-info" v-if="hoveredNode" :style="{ left: infoPosition.x + 'px', top: infoPosition.y + 'px' }">
-          <div class="info-title">{{ hoveredNode.label }}</div>
-          <div class="info-category">{{ hoveredNode.category }}</div>
-          <div class="info-tech" v-if="hoveredNode.sublabel">{{ hoveredNode.sublabel }}</div>
-          <div class="info-connections">关联节点: {{ getConnections(hoveredNode.id).length }}</div>
-        </div>
       </div>
     </section>
   </div>
@@ -118,6 +112,9 @@ export default {
     let ctx = null
     let nodes = []
     let links = []
+    let childNodes = []  // 悬停时显示的子节点
+    let draggedNode = null  // 正在拖动的节点
+    let isDragging = false
     
     // 包装push，避免重复导航等错误导致未捕获异常
     const safePush = (to) => {
@@ -169,34 +166,175 @@ export default {
       // 创建所有节点
       nodes = [
         // 设备可信认证节点 (蓝色系)
-        { id: 'device-0', label: '硬件指纹', sublabel: 'TPM/PUF', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#58b2ff', type: 'device' },
-        { id: 'device-1', label: '固件可信', sublabel: 'Secure Boot', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#58b2ff', type: 'device' },
-        { id: 'device-2', label: '协议栈指纹', sublabel: 'Profinet/TSN', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#58b2ff', type: 'device' },
-        { id: 'device-3', label: '密钥管理', sublabel: 'X.509/SM2', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#6cc6ff', type: 'device' },
-        { id: 'device-4', label: '远程证明', sublabel: 'TEE/DICE', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#6cc6ff', type: 'device' },
-        { id: 'device-5', label: '链路安全', sublabel: 'TLS1.3', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#80d6ff', type: 'device' },
-        { id: 'device-6', label: '行为基线', sublabel: '时序/功耗', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#80d6ff', type: 'device' },
-        { id: 'device-7', label: '态势感知', sublabel: '策略联动', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#94e6ff', type: 'device' },
+        { id: 'device-0', label: '硬件指纹', sublabel: 'TPM/PUF', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#58b2ff', type: 'device', 
+          children: [
+            { label: 'TPM', sublabel: 'Trusted Platform Module', tech: '可信平台模块' },
+            { label: 'PUF', sublabel: 'Physical Unclonable Function', tech: '物理不可克隆函数' }
+          ]
+        },
+        { id: 'device-1', label: '固件可信', sublabel: 'Secure Boot', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#58b2ff', type: 'device',
+          children: [
+            { label: 'UEFI', sublabel: 'Unified Extensible Firmware', tech: '统一可扩展固件' },
+            { label: '签名验证', sublabel: 'Digital Signature', tech: '数字签名校验' }
+          ]
+        },
+        { id: 'device-2', label: '协议栈指纹', sublabel: 'Profinet/TSN', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#58b2ff', type: 'device',
+          children: [
+            { label: 'Profinet', sublabel: 'Process Field Net', tech: '工业以太网协议' },
+            { label: 'TSN', sublabel: 'Time-Sensitive Networking', tech: '时间敏感网络' },
+            { label: 'EtherCAT', sublabel: 'Ethernet for Control', tech: '实时工业以太网' }
+          ]
+        },
+        { id: 'device-3', label: '密钥管理', sublabel: 'X.509/SM2', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#6cc6ff', type: 'device',
+          children: [
+            { label: 'X.509', sublabel: 'PKI Certificate', tech: '公钥基础设施证书' },
+            { label: 'SM2', sublabel: 'State Cryptography', tech: '国密椭圆曲线算法' },
+            { label: 'HSM', sublabel: 'Hardware Security Module', tech: '硬件安全模块' }
+          ]
+        },
+        { id: 'device-4', label: '远程证明', sublabel: 'TEE/DICE', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#6cc6ff', type: 'device',
+          children: [
+            { label: 'TEE', sublabel: 'Trusted Execution Environment', tech: '可信执行环境' },
+            { label: 'DICE', sublabel: 'Device Identifier Composition', tech: '设备标识符组合引擎' },
+            { label: 'SGX', sublabel: 'Software Guard Extensions', tech: '软件保护扩展' }
+          ]
+        },
+        { id: 'device-5', label: '链路安全', sublabel: 'TLS1.3', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#80d6ff', type: 'device',
+          children: [
+            { label: 'TLS 1.3', sublabel: 'Transport Layer Security', tech: '传输层安全协议' },
+            { label: 'DTLS', sublabel: 'Datagram TLS', tech: '数据报传输层安全' },
+            { label: 'MACsec', sublabel: 'Media Access Control Security', tech: '媒体访问控制安全' }
+          ]
+        },
+        { id: 'device-6', label: '行为基线', sublabel: '时序/功耗', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#80d6ff', type: 'device',
+          children: [
+            { label: '时序分析', sublabel: 'Timing Analysis', tech: '操作时序特征提取' },
+            { label: '功耗分析', sublabel: 'Power Analysis', tech: '功耗模式识别' },
+            { label: '行为建模', sublabel: 'Behavior Modeling', tech: '正常行为模型' }
+          ]
+        },
+        { id: 'device-7', label: '态势感知', sublabel: '策略联动', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#94e6ff', type: 'device',
+          children: [
+            { label: '威胁情报', sublabel: 'Threat Intelligence', tech: '威胁情报聚合' },
+            { label: '风险评估', sublabel: 'Risk Assessment', tech: '实时风险评分' },
+            { label: '自动响应', sublabel: 'Auto Response', tech: '自动化响应编排' }
+          ]
+        },
         
         // 访问控制节点 (青色系)
-        { id: 'access-0', label: '统一身份', sublabel: 'IAM/OIDC', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#00d4aa', type: 'access' },
-        { id: 'access-1', label: '属性管理', sublabel: '设备/数据', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#00d4aa', type: 'access' },
-        { id: 'access-2', label: '策略模型', sublabel: 'RBAC/PBAC', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#1ae6bb', type: 'access' },
-        { id: 'access-3', label: '策略引擎', sublabel: 'OPA/Casbin', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#1ae6bb', type: 'access' },
-        { id: 'access-4', label: '上下文感知', sublabel: '态势/时空', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#33f5cc', type: 'access' },
-        { id: 'access-5', label: '端侧执行', sublabel: '沙箱', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#33f5cc', type: 'access' },
-        { id: 'access-6', label: '云侧执行', sublabel: 'API网关', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#4dffdd', type: 'access' },
-        { id: 'access-7', label: '审计合规', sublabel: '回放/灰度', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#4dffdd', type: 'access' },
+        { id: 'access-0', label: '统一身份', sublabel: 'IAM/OIDC', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#00d4aa', type: 'access',
+          children: [
+            { label: 'IAM', sublabel: 'Identity Access Management', tech: '身份访问管理' },
+            { label: 'OIDC', sublabel: 'OpenID Connect', tech: '开放身份认证' },
+            { label: 'SAML', sublabel: 'Security Assertion Markup', tech: '安全断言标记语言' }
+          ]
+        },
+        { id: 'access-1', label: '属性管理', sublabel: '设备/数据', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#00d4aa', type: 'access',
+          children: [
+            { label: '设备属性', sublabel: 'Device Attributes', tech: '设备元数据管理' },
+            { label: '数据属性', sublabel: 'Data Attributes', tech: '数据分类标签' },
+            { label: '属性同步', sublabel: 'Attribute Sync', tech: '属性同步机制' }
+          ]
+        },
+        { id: 'access-2', label: '策略模型', sublabel: 'RBAC/PBAC', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#1ae6bb', type: 'access',
+          children: [
+            { label: 'RBAC', sublabel: 'Role-Based Access Control', tech: '基于角色访问控制' },
+            { label: 'ABAC', sublabel: 'Attribute-Based Access', tech: '基于属性访问控制' },
+          ]
+        },
+        { id: 'access-3', label: '加密协议', sublabel: '可搜索加密/属性加密', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#1ae6bb', type: 'access',
+          children: [
+            { label: '可搜索加密', sublabel: 'Searchable Encryption', tech: '密文搜索技术' },
+            { label: '属性加密', sublabel: 'Attribute-Based Encryption', tech: '基于属性加密' },
+            { label: '对称加密', sublabel: 'Symmetric Encryption', tech: '对称密钥加密' }
+          ]
+        },
+        { id: 'access-4', label: '上下文感知', sublabel: '态势/时空', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#33f5cc', type: 'access',
+          children: [
+            { label: '时间因素', sublabel: 'Temporal Context', tech: '时间窗口控制' },
+            { label: '位置因素', sublabel: 'Location Context', tech: '地理位置限制' },
+            { label: '态势因素', sublabel: 'Situation Context', tech: '安全态势感知' }
+          ]
+        },
+        { id: 'access-5', label: '端侧执行', sublabel: 'TEE/合约授权', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#33f5cc', type: 'access',
+          children: [
+            { label: '可信执行环境', sublabel: 'Trusted Execution Environment', tech: 'TEE隔离执行' },
+            { label: '合约授权', sublabel: 'Contract Authorization', tech: '智能合约授权' },
+            { label: 'Baker映射', sublabel: 'Baker Map', tech: 'Baker混沌映射' }
+          ]
+        },
+        { id: 'access-6', label: '云侧执行', sublabel: 'API网关/任务锚点', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#4dffdd', type: 'access',
+          children: [
+            { label: 'API网关', sublabel: 'API Gateway', tech: 'API鉴权网关' },
+            { label: '任务锚点', sublabel: 'Task Anchor', tech: '任务锚点机制' },
+            { label: '激活值偏移', sublabel: 'Activation Offset', tech: '激活值偏移保护' }
+          ]
+        },
+        { id: 'access-7', label: '审计合规', sublabel: '回放/认证数据结构', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#4dffdd', type: 'access',
+          children: [
+            { label: '行为回放', sublabel: 'Behavior Replay', tech: '操作回放分析' },
+            { label: '认证数据结构', sublabel: 'Authenticated Data Structure', tech: 'ADS数据结构' },
+            { label: '合规检查', sublabel: 'Compliance Check', tech: '合规性验证' }
+          ]
+        },
         
         // DDoS检测节点 (橙色系)
-        { id: 'ddos-0', label: '流量采集', sublabel: 'eBPF/DPDK', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ff9d00', type: 'ddos' },
-        { id: 'ddos-1', label: '镜像流', sublabel: 'NetFlow', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ff9d00', type: 'ddos' },
-        { id: 'ddos-2', label: '特征工程', sublabel: '熵/突发', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffb133', type: 'ddos' },
-        { id: 'ddos-3', label: '检测模型', sublabel: 'LSTM', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffb133', type: 'ddos' },
-        { id: 'ddos-4', label: '攻击溯源', sublabel: 'IP画像', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffc466', type: 'ddos' },
-        { id: 'ddos-5', label: '自动处置', sublabel: 'ACL/清洗', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffc466', type: 'ddos' },
-        { id: 'ddos-6', label: '可视化', sublabel: '看板/告警', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffd799', type: 'ddos' },
-        { id: 'ddos-7', label: '自学习', sublabel: '自适应', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffd799', type: 'ddos' }
+        { id: 'ddos-0', label: '流量采集', sublabel: 'eBPF/DPDK', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ff9d00', type: 'ddos',
+          children: [
+            { label: 'eBPF', sublabel: 'Extended BPF', tech: '内核级流量捕获' },
+            { label: 'DPDK', sublabel: 'Data Plane Development', tech: '数据平面加速' },
+            { label: 'XDP', sublabel: 'eXpress Data Path', tech: '快速数据路径' }
+          ]
+        },
+        { id: 'ddos-1', label: '镜像流', sublabel: 'NetFlow', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ff9d00', type: 'ddos',
+          children: [
+            { label: 'NetFlow', sublabel: 'Network Flow', tech: '网络流量统计' },
+            { label: 'sFlow', sublabel: 'Sampled Flow', tech: '采样流量分析' },
+            { label: 'IPFIX', sublabel: 'IP Flow Information', tech: 'IP流信息导出' }
+          ]
+        },
+        { id: 'ddos-2', label: '特征工程', sublabel: '熵/突发', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffb133', type: 'ddos',
+          children: [
+            { label: '熵值分析', sublabel: 'Entropy Analysis', tech: '流量熵值计算' },
+            { label: '突发检测', sublabel: 'Burst Detection', tech: '流量突发识别' },
+            { label: '统计特征', sublabel: 'Statistical Features', tech: '多维统计特征' }
+          ]
+        },
+        { id: 'ddos-3', label: '检测模型', sublabel: 'LSTM', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffb133', type: 'ddos',
+          children: [
+            { label: 'LSTM', sublabel: 'Long Short-Term Memory', tech: '长短期记忆网络' },
+            { label: 'Transformer', sublabel: 'Attention Mechanism', tech: '注意力机制模型' },
+            { label: 'Random Forest', sublabel: 'Ensemble Learning', tech: '随机森林集成' }
+          ]
+        },
+        { id: 'ddos-4', label: '攻击溯源', sublabel: 'IP画像', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffc466', type: 'ddos',
+          children: [
+            { label: 'IP画像', sublabel: 'IP Profiling', tech: 'IP行为画像' },
+            { label: '路径追踪', sublabel: 'Path Tracing', tech: '攻击路径追踪' },
+            { label: '归因分析', sublabel: 'Attribution Analysis', tech: '攻击归因' }
+          ]
+        },
+        { id: 'ddos-5', label: '自动处置', sublabel: 'ACL/清洗', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffc466', type: 'ddos',
+          children: [
+            { label: 'ACL', sublabel: 'Access Control List', tech: '访问控制列表' },
+            { label: '流量清洗', sublabel: 'Traffic Scrubbing', tech: '恶意流量过滤' },
+            { label: '黑洞路由', sublabel: 'Blackhole Routing', tech: '黑洞路由丢弃' }
+          ]
+        },
+        { id: 'ddos-6', label: '可视化', sublabel: '看板/告警', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffd799', type: 'ddos',
+          children: [
+            { label: 'Grafana', sublabel: 'Metrics Dashboard', tech: '指标可视化看板' },
+            { label: 'ELK', sublabel: 'Elasticsearch Kibana', tech: '日志分析展示' },
+            { label: 'AlertManager', sublabel: 'Alert Routing', tech: '告警路由管理' }
+          ]
+        },
+        { id: 'ddos-7', label: '自学习', sublabel: '自适应', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffd799', type: 'ddos',
+          children: [
+            { label: '在线学习', sublabel: 'Online Learning', tech: '在线模型更新' },
+            { label: '反馈优化', sublabel: 'Feedback Loop', tech: '反馈闭环优化' },
+            { label: '自适应阈值', sublabel: 'Adaptive Threshold', tech: '动态阈值调整' }
+          ]
+        }
       ]
       
       // 随机初始化位置
@@ -262,6 +400,13 @@ export default {
       
       // 应用力
       nodes.forEach(node => {
+        // 如果节点正在被拖动，跳过物理计算
+        if (draggedNode && draggedNode.id === node.id) {
+          node.vx = 0
+          node.vy = 0
+          return
+        }
+        
         // 重力 - 吸引到中心
         const dx = centerX - node.x
         const dy = centerY - node.y
@@ -288,10 +433,15 @@ export default {
         const target = nodes.find(n => n.id === link.target)
         if (!source || !target) return
         
+        // 如果任一节点正在被拖动，跳过
+        if ((draggedNode && draggedNode.id === source.id) || (draggedNode && draggedNode.id === target.id)) {
+          return
+        }
+        
         const dx = target.x - source.x
         const dy = target.y - source.y
         const dist = Math.sqrt(dx * dx + dy * dy) || 1
-        const force = (dist - 150) * 0.01 * link.strength
+        const force = (dist - 200) * 0.01 * link.strength
         
         source.vx += (dx / dist) * force
         source.vy += (dy / dist) * force
@@ -301,17 +451,23 @@ export default {
       
       // 更新位置
       nodes.forEach(node => {
+        // 如果节点正在被拖动，跳过位置更新
+        if (draggedNode && draggedNode.id === node.id) {
+          return
+        }
+        
         node.vx *= damping
         node.vy *= damping
         node.x += node.vx
         node.y += node.vy
         
-        // 边界检查
+        // 边界检查 - 为子节点预留底部空间
         const margin = 60
+        const bottomMargin = 200  // 底部预留更多空间给子节点显示
         if (node.x < margin) { node.x = margin; node.vx *= -0.5 }
         if (node.x > canvas.value.width - margin) { node.x = canvas.value.width - margin; node.vx *= -0.5 }
         if (node.y < margin) { node.y = margin; node.vy *= -0.5 }
-        if (node.y > canvas.value.height - margin) { node.y = canvas.value.height - margin; node.vy *= -0.5 }
+        if (node.y > canvas.value.height - bottomMargin) { node.y = canvas.value.height - bottomMargin; node.vy *= -0.5 }
       })
     }
 
@@ -351,6 +507,24 @@ export default {
         }
       })
       
+      // 绘制子节点连接线
+      if (hoveredNode.value && childNodes.length > 0) {
+        childNodes.forEach(child => {
+          const gradient = ctx.createLinearGradient(hoveredNode.value.x, hoveredNode.value.y, child.x, child.y)
+          gradient.addColorStop(0, hoveredNode.value.color + 'aa')
+          gradient.addColorStop(1, hoveredNode.value.color + '66')
+          
+          ctx.strokeStyle = gradient
+          ctx.lineWidth = 2
+          ctx.setLineDash([5, 5])
+          ctx.beginPath()
+          ctx.moveTo(hoveredNode.value.x, hoveredNode.value.y)
+          ctx.lineTo(child.x, child.y)
+          ctx.stroke()
+          ctx.setLineDash([])
+        })
+      }
+      
       // 绘制节点
       nodes.forEach(node => {
         const isHovered = hoveredNode.value && hoveredNode.value.id === node.id
@@ -380,17 +554,53 @@ export default {
         
         // 绘制标签
         ctx.fillStyle = '#d6e8ff'
-        ctx.font = isHovered ? 'bold 13px Arial' : '11px Arial'
+        ctx.font = isHovered ? 'bold 16px Arial' : '14px Arial'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText(node.label, node.x, node.y - radius - 12)
         
         if (isHovered && node.sublabel) {
           ctx.fillStyle = '#80d6ff'
-          ctx.font = '10px Consolas'
+          ctx.font = '12px Consolas'
           ctx.fillText(node.sublabel, node.x, node.y - radius - 26)
         }
       })
+      
+      // 绘制子节点
+      if (hoveredNode.value && childNodes.length > 0) {
+        childNodes.forEach((child, index) => {
+          const radius = 12
+          
+          // 外发光
+          ctx.shadowBlur = 15
+          ctx.shadowColor = hoveredNode.value.color
+          
+          // 子节点外圈
+          ctx.beginPath()
+          ctx.arc(child.x, child.y, radius + 2, 0, Math.PI * 2)
+          ctx.fillStyle = hoveredNode.value.color + '30'
+          ctx.fill()
+          
+          // 子节点主体
+          const gradient = ctx.createRadialGradient(child.x, child.y, 0, child.x, child.y, radius)
+          gradient.addColorStop(0, hoveredNode.value.color + 'dd')
+          gradient.addColorStop(1, hoveredNode.value.color + '99')
+          
+          ctx.beginPath()
+          ctx.arc(child.x, child.y, radius, 0, Math.PI * 2)
+          ctx.fillStyle = gradient
+          ctx.fill()
+          
+          ctx.shadowBlur = 0
+          
+          // 绘制子节点标签（显示在节点下方）
+          ctx.fillStyle = '#ffffff'
+          ctx.font = 'bold 12px Arial'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(child.label, child.x, child.y + radius + 10)
+        })
+      }
     }
 
     // 动画循环
@@ -406,6 +616,33 @@ export default {
       const x = e.clientX - rect.left
       const y = e.clientY - rect.top
       
+      // 如果正在拖动，更新拖动节点的位置
+      if (isDragging && draggedNode) {
+        // 限制拖动范围，底部预留空间给子节点
+        const margin = 60
+        const bottomMargin = 200
+        draggedNode.x = Math.max(margin, Math.min(x, canvas.value.width - margin))
+        draggedNode.y = Math.max(margin, Math.min(y, canvas.value.height - bottomMargin))
+        
+        // 如果拖动的节点有子节点在显示，实时更新子节点位置
+        if (hoveredNode.value && hoveredNode.value.id === draggedNode.id && childNodes.length > 0) {
+          const childCount = childNodes.length
+          const spreadAngle = Math.PI / 3
+          const startAngle = Math.PI / 2 - spreadAngle / 2
+          
+          childNodes.forEach((child, index) => {
+            const angle = startAngle + (index * spreadAngle / Math.max(childCount - 1, 1))
+            const distance = 120 + (index % 2) * 30 + Math.floor(index / 2) * 15
+            
+            child.x = draggedNode.x + Math.cos(angle) * distance
+            child.y = draggedNode.y + Math.sin(angle) * distance
+            // 保持progress为1，表示已完全展开
+            child.progress = 1
+          })
+        }
+        return
+      }
+      
       let found = null
       for (const node of nodes) {
         const dist = Math.sqrt((x - node.x) ** 2 + (y - node.y) ** 2)
@@ -415,12 +652,90 @@ export default {
         }
       }
       
-      hoveredNode.value = found
-      if (found) {
-        infoPosition.value = { x: e.clientX + 20, y: e.clientY - 20 }
+      // 当悬停节点发生变化时，更新子节点
+      if (found !== hoveredNode.value) {
+        hoveredNode.value = found
+        
+        if (found && found.children) {
+          // 创建子节点布局 - 下方扇形排列
+          const childCount = found.children.length
+          const spreadAngle = Math.PI / 3  // 扇形张角（60度）
+          const startAngle = Math.PI / 2 - spreadAngle / 2  // 从下方偏左开始
+          
+          childNodes = found.children.map((child, index) => {
+            const angle = startAngle + (index * spreadAngle / Math.max(childCount - 1, 1))
+            const distance = 120 + (index % 2) * 30 + Math.floor(index / 2) * 15
+            return {
+              ...child,
+              x: found.x + Math.cos(angle) * distance,
+              y: found.y + Math.sin(angle) * distance,
+              targetX: found.x + Math.cos(angle) * distance,
+              targetY: found.y + Math.sin(angle) * distance,
+              currentX: found.x,
+              currentY: found.y,
+              progress: 0
+            }
+          })
+        } else {
+          childNodes = []
+        }
       }
       
-      canvas.value.style.cursor = found ? 'pointer' : 'default'
+      // 更新子节点展开动画
+      if (childNodes.length > 0 && hoveredNode.value) {
+        childNodes.forEach((child, index) => {
+          // 计算子节点相对于父节点的位置
+          const childCount = childNodes.length
+          const spreadAngle = Math.PI / 3
+          const startAngle = Math.PI / 2 - spreadAngle / 2
+          const angle = startAngle + (index * spreadAngle / Math.max(childCount - 1, 1))
+          const distance = 120 + (index % 2) * 30 + Math.floor(index / 2) * 15
+          
+          const targetX = hoveredNode.value.x + Math.cos(angle) * distance
+          const targetY = hoveredNode.value.y + Math.sin(angle) * distance
+          
+          if (child.progress < 1) {
+            child.progress = Math.min(child.progress + 0.15, 1)
+          }
+          
+          // 始终使用相同的目标位置，不使用缓动
+          child.x = targetX
+          child.y = targetY
+        })
+      }
+      
+      canvas.value.style.cursor = found ? 'grab' : 'default'
+    }
+
+    const handleMouseDown = (e) => {
+      const rect = canvas.value.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      
+      for (const node of nodes) {
+        const dist = Math.sqrt((x - node.x) ** 2 + (y - node.y) ** 2)
+        if (dist < 30) {
+          isDragging = true
+          draggedNode = node
+          canvas.value.style.cursor = 'grabbing'
+          break
+        }
+      }
+    }
+
+    const handleMouseUp = () => {
+      if (isDragging) {
+        isDragging = false
+        draggedNode = null
+        canvas.value.style.cursor = hoveredNode.value ? 'grab' : 'default'
+      }
+    }
+
+    const handleMouseLeave = () => {
+      if (isDragging) {
+        isDragging = false
+        draggedNode = null
+      }
     }
 
     const getConnections = (nodeId) => {
@@ -445,6 +760,9 @@ export default {
         animate()
         
         canvas.value.addEventListener('mousemove', handleMouseMove)
+        canvas.value.addEventListener('mousedown', handleMouseDown)
+        canvas.value.addEventListener('mouseup', handleMouseUp)
+        canvas.value.addEventListener('mouseleave', handleMouseLeave)
         window.addEventListener('resize', handleResize)
       })
     })
@@ -455,6 +773,9 @@ export default {
       }
       if (canvas.value) {
         canvas.value.removeEventListener('mousemove', handleMouseMove)
+        canvas.value.removeEventListener('mousedown', handleMouseDown)
+        canvas.value.removeEventListener('mouseup', handleMouseUp)
+        canvas.value.removeEventListener('mouseleave', handleMouseLeave)
       }
       window.removeEventListener('resize', handleResize)
     })
