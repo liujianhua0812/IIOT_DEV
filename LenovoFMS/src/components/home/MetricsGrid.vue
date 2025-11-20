@@ -50,7 +50,7 @@ const metricsList = computed(() => [
   },
   {
     key: 'dailyCycleTime',
-    label: '日均节拍',
+    label: '平均节拍',
     unit: '秒',
     gradient: 'linear-gradient(135deg, #96fbc4, #f9f586)',
   },
