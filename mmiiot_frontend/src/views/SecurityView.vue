@@ -1,7 +1,7 @@
 <template>
   <div class="page-shell">
     <header class="page-header">
-      <h1>内生安全体系</h1>
+      <h1>多模态网络主动认知内生安全体系</h1>
       <p>以内生可信为核心，贯穿数据、模型、任务全生命周期的纵深防护体系。</p>
     </header>
 
@@ -10,7 +10,7 @@
       <div class="module-wrapper">
         <article class="card" @click="navigateToDeviceVerification('hikvision-camera')">
           <h2>设备可信认证</h2>
-          <p>融合链路、设备、模型、任务多维指标，实时安全态势感知。</p>
+          <p>提取多模态、多维度设备指纹信息，高效进行时空频一致性验证。</p>
           <div class="chip-group device-chip-group" @click.stop>
             <button class="chip" @click="navigateToDeviceVerification('hikvision-camera')">
               <span>海康工业相机<br>(Ethernet Protocol)</span>
@@ -35,7 +35,7 @@
       <div class="module-wrapper">
         <article class="card" @click="navigateToAccessControl('端侧模型访问控制')">
           <h2>细粒度访问控制</h2>
-          <p>安全策略自学习迭代，自动编排边云协同防护链路。</p>
+          <p>迭代细粒度时空频权限约束策略，协同构建端云多类型数据防护链路。</p>
           <div class="chip-group access-chip-group" @click.stop>
             <button class="chip" @click="navigateToAccessControl('端侧模型访问控制')">
               <span>端侧模型访问控制<br>(Device-Side Model)</span>
@@ -60,7 +60,7 @@
       <div class="module-wrapper">
         <article class="card radar" @click="navigateToDDoS">
           <h2>DDoS检测</h2>
-          <p>进入检测中枢页面，查看实时威胁、攻击链溯源与自动处置编排。</p>
+          <p>感知效能资源与实时威胁，快速完成攻击链溯源与自动处置编排。</p>
           <div class="chip-group ddos-chip-group" @click.stop>
             <RouterLink class="chip chip-link" :to="{ name: 'ddos-system-status' }">
               <span>系统状态<br>(System Status)</span>
@@ -337,12 +337,35 @@ export default {
         }
       ]
       
-      // 随机初始化位置
-      nodes.forEach(node => {
-        node.x = Math.random() * width
-        node.y = Math.random() * height
-        node.vx = (Math.random() - 0.5) * 2
-        node.vy = (Math.random() - 0.5) * 2
+      // 按类别分区初始化位置，避免节点聚集
+      const centerX = width / 2
+      const centerY = height / 2
+      const radius = Math.min(width, height) / 3
+      
+      nodes.forEach((node, index) => {
+        let angle, distance
+        
+        if (node.type === 'device') {
+          // 设备节点放在左侧区域
+          const deviceIndex = index % 8
+          angle = -Math.PI / 2 + (deviceIndex / 8) * Math.PI
+          distance = radius + (Math.random() - 0.5) * 50
+        } else if (node.type === 'access') {
+          // 访问控制节点放在右上区域
+          const accessIndex = (index - 8) % 8
+          angle = Math.PI / 6 + (accessIndex / 8) * (2 * Math.PI / 3)
+          distance = radius + (Math.random() - 0.5) * 50
+        } else {
+          // DDoS节点放在右下区域
+          const ddosIndex = (index - 16) % 8
+          angle = Math.PI / 2 + Math.PI / 6 + (ddosIndex / 8) * (2 * Math.PI / 3)
+          distance = radius + (Math.random() - 0.5) * 50
+        }
+        
+        node.x = centerX + Math.cos(angle) * distance
+        node.y = centerY + Math.sin(angle) * distance
+        node.vx = (Math.random() - 0.5) * 0.5
+        node.vy = (Math.random() - 0.5) * 0.5
       })
       
       // 定义连接关系
@@ -420,7 +443,7 @@ export default {
             const dx = node.x - other.x
             const dy = node.y - other.y
             const dist = Math.sqrt(dx * dx + dy * dy) || 1
-            const force = 3000 / (dist * dist)
+            const force = 5000 / (dist * dist)
             node.vx += (dx / dist) * force
             node.vy += (dy / dist) * force
           }
