@@ -330,9 +330,22 @@ export default {
       currentAccessControlType.value = name
       const item = accessControlItems.find(item => item.name === name)
       
-      // 如果点击的是"端侧模型访问控制"，将所有模型状态更新为已加密
+      // 如果点击的是"端侧模型访问控制"，清空推理结果和进度条，并将所有模型状态更新为已加密
       if (name === '端侧模型访问控制') {
+        inferenceResult.value = null
+        showInference.value = false
+        showProgress.value = false
+        progress.value = 0
+        progressText.value = ''
+        verificationResult.value = null
+        
         await resetAllModelsToEncrypted()
+        
+        // 如果有选中的模型，重新启用按钮
+        if (currentModelId.value && currentDeviceId.value) {
+          canDecrypt.value = true
+          canInference.value = true
+        }
       }
       
       if (item && route.name !== item.route) {
@@ -590,6 +603,10 @@ export default {
         alert('请先选择设备和模型')
         return
       }
+
+      // 清空之前的推理结果
+      inferenceResult.value = null
+      showInference.value = false
 
       showProgress.value = true
       progress.value = 0
@@ -958,6 +975,9 @@ export default {
         return
       }
 
+      // 清空之前的推理结果
+      inferenceResult.value = null
+      
       showUpload.value = false
       showInference.value = true
 
@@ -1054,7 +1074,7 @@ export default {
                           <div style="text-align: center; margin-bottom: 8px;">
                             <img src="${img.annotated_image}" alt="${img.filename}" style="max-width: 100%; height: auto; border-radius: 4px; border: 1px solid rgba(88, 178, 255, 0.2);">
                           </div>
-                          <p style="text-align: center; font-weight: 600; margin-bottom: 4px; color: #e6f1ff; font-size: 12px;">${img.filename}</p>
+                          <p style="text-align: center; font-weight: 600; margin-bottom: 4px; color: #e6f1ff; font-size: 12px; word-wrap: break-word; word-break: break-all; overflow-wrap: break-word;">${img.filename}</p>
                           <p style="text-align: center; color: rgba(214, 232, 255, 0.8); font-size: 11px; margin-bottom: 6px;">检测到 ${count} 个目标</p>
                           ${img.detections && img.detections.length > 0 ? `
                             <div style="margin-top: 6px; font-size: 11px;">
