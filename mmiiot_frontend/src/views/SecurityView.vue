@@ -6,47 +6,118 @@
     </header>
 
     <section class="grid">
-      <article class="card" @click="navigateToDeviceVerification('hikvision-camera')">
-        <h2>设备可信认证</h2>
-        <p>融合链路、设备、模型、任务多维指标，实时安全态势感知。</p>
-        <div class="chip-group device-chip-group" @click.stop>
-          <button class="chip" @click="navigateToDeviceVerification('hikvision-camera')">海康工业相机（Ethernet Protocol）</button>
-          <button class="chip" @click="navigateToDeviceVerification('siemens-motor-driver')">西门子电机驱动器（ProfiNet Protocol）</button>
-          <button class="chip" @click="navigateToDeviceVerification('tsn-switch')">TSN交换机（TSN Protocol）</button>
-          <button class="chip" @click="navigateToDeviceVerification('temperature-sensor')">温度传感器（Modbus Protocol）</button>
-          <button class="chip" @click="navigateToDeviceVerification('ethercat-motor-driver')">EtherCat电机驱动器（EtherCat Protocol）</button>
+      <!-- 设备可信认证模块 -->
+      <div class="module-wrapper">
+        <article class="card" @click="navigateToDeviceVerification('hikvision-camera')">
+          <h2>设备可信认证</h2>
+          <p>融合链路、设备、模型、任务多维指标，实时安全态势感知。</p>
+          <div class="chip-group device-chip-group" @click.stop>
+            <button class="chip" @click="navigateToDeviceVerification('hikvision-camera')">
+              <span>海康工业相机<br>(Ethernet Protocol)</span>
+            </button>
+            <button class="chip" @click="navigateToDeviceVerification('siemens-motor-driver')">
+              <span>西门子电机驱动器<br>(ProfiNet Protocol)</span>
+            </button>
+            <button class="chip" @click="navigateToDeviceVerification('tsn-switch')">
+              <span>TSN交换机<br>(TSN Protocol)</span>
+            </button>
+            <button class="chip" @click="navigateToDeviceVerification('temperature-sensor')">
+              <span>温度传感器<br>(Modbus Protocol)</span>
+            </button>
+            <button class="chip" @click="navigateToDeviceVerification('ethercat-motor-driver')">
+              <span>EtherCat电机驱动器<br>(EtherCat Protocol)</span>
+            </button>
+          </div>
+        </article>
+      </div>
+
+      <!-- 细粒度访问控制模块 -->
+      <div class="module-wrapper">
+        <article class="card" @click="navigateToAccessControl('端侧模型访问控制')">
+          <h2>细粒度访问控制</h2>
+          <p>安全策略自学习迭代，自动编排边云协同防护链路。</p>
+          <div class="chip-group access-chip-group" @click.stop>
+            <button class="chip" @click="navigateToAccessControl('端侧模型访问控制')">
+              <span>端侧模型访问控制<br>(Device-Side Model)</span>
+            </button>
+            <button class="chip" @click="navigateToAccessControl('云侧模型访问控制')">
+              <span>云侧模型访问控制<br>(Cloud-Side Model)</span>
+            </button>
+            <button class="chip" @click="navigateToAccessControl('云上数据访问控制')">
+              <span>云上数据访问控制<br>(Cloud Data)</span>
+            </button>
+            <button class="chip" @click="navigateToAccessControl('链上数据访问控制')">
+              <span>链上数据访问控制<br>(Chain Data)</span>
+            </button>
+            <button class="chip" @click="navigateToAccessControl('视频数据访问控制')">
+              <span>视频数据访问控制<br>(Video Data)</span>
+            </button>
+          </div>
+        </article>
+      </div>
+
+      <!-- DDoS检测模块 -->
+      <div class="module-wrapper">
+        <article class="card radar" @click="navigateToDDoS">
+          <h2>DDoS检测</h2>
+          <p>进入检测中枢页面，查看实时威胁、攻击链溯源与自动处置编排。</p>
+          <div class="chip-group ddos-chip-group" @click.stop>
+            <RouterLink class="chip chip-link" :to="{ name: 'ddos-system-status' }">
+              <span>系统状态<br>(System Status)</span>
+            </RouterLink>
+            <RouterLink class="chip chip-link" :to="{ name: 'ddos-device-monitor' }">
+              <span>设备监控<br>(Device Monitor)</span>
+            </RouterLink>
+            <div class="chip chip-invisible">
+              <span>占位符<br>(Placeholder)</span>
+            </div>
+            <div class="chip chip-invisible">
+              <span>占位符<br>(Placeholder)</span>
+            </div>
+            <div class="chip chip-invisible">
+              <span>占位符<br>(Placeholder)</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- 技术路线全景图 -->
+    <section class="tech-roadmap">
+      <h2 class="roadmap-title">技术路线关系图谱</h2>
+      <div class="roadmap-canvas-wrapper">
+        <canvas ref="canvas" class="roadmap-canvas"></canvas>
+        <div class="legend">
+          <div class="legend-item"><span class="dot device-color"></span>设备可信认证</div>
+          <div class="legend-item"><span class="dot access-color"></span>细粒度访问控制</div>
+          <div class="legend-item"><span class="dot ddos-color"></span>DDoS检测</div>
         </div>
-      </article>
-      <article class="card" @click="navigateToAccessControl('端侧模型访问控制')">
-        <h2>细粒度访问控制</h2>
-        <p>安全策略自学习迭代，自动编排边云协同防护链路。</p>
-        <div class="chip-group access-chip-group" @click.stop>
-          <button class="chip" @click="navigateToAccessControl('端侧模型访问控制')">端侧模型访问控制（Device-Side Model）</button>
-          <button class="chip" @click="navigateToAccessControl('云侧模型访问控制')">云侧模型访问控制（Cloud-Side Model）</button>
-          <button class="chip" @click="navigateToAccessControl('云上数据访问控制')">云上数据访问控制（Cloud Data）</button>
-          <button class="chip" @click="navigateToAccessControl('链上数据访问控制')">链上数据访问控制（Chain Data）</button>
-          <button class="chip" @click="navigateToAccessControl('视频数据访问控制')">视频数据访问控制（Video Data）</button>
+        <div class="node-info" v-if="hoveredNode" :style="{ left: infoPosition.x + 'px', top: infoPosition.y + 'px' }">
+          <div class="info-title">{{ hoveredNode.label }}</div>
+          <div class="info-category">{{ hoveredNode.category }}</div>
+          <div class="info-tech" v-if="hoveredNode.sublabel">{{ hoveredNode.sublabel }}</div>
+          <div class="info-connections">关联节点: {{ getConnections(hoveredNode.id).length }}</div>
         </div>
-      </article>
-      <article class="card radar">
-        <h2>DDoS检测</h2>
-        <p>进入检测中枢页面，查看实时威胁、攻击链溯源与自动处置编排。</p>
-        <div class="chip-group">
-          <RouterLink class="chip chip-link" :to="{ name: 'ddos-system-status' }">系统状态</RouterLink>
-          <RouterLink class="chip chip-link" :to="{ name: 'ddos-device-monitor' }">设备监控</RouterLink>
-        </div>
-      </article>
+      </div>
     </section>
   </div>
 </template>
 
 <script>
 import { useRouter } from 'vue-router'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 
 export default {
   name: 'SecurityView',
   setup() {
     const router = useRouter()
+    const canvas = ref(null)
+    const hoveredNode = ref(null)
+    const infoPosition = ref({ x: 0, y: 0 })
+    let animationId = null
+    let ctx = null
+    let nodes = []
+    let links = []
     
     // 包装push，避免重复导航等错误导致未捕获异常
     const safePush = (to) => {
@@ -86,10 +157,317 @@ export default {
       })
     }
 
+    const navigateToDDoS = () => {
+      safePush({ name: 'ddos-system-status' })
+    }
+
+    // 初始化节点和连接数据
+    const initGraph = () => {
+      const width = canvas.value.width
+      const height = canvas.value.height
+      
+      // 创建所有节点
+      nodes = [
+        // 设备可信认证节点 (蓝色系)
+        { id: 'device-0', label: '硬件指纹', sublabel: 'TPM/PUF', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#58b2ff', type: 'device' },
+        { id: 'device-1', label: '固件可信', sublabel: 'Secure Boot', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#58b2ff', type: 'device' },
+        { id: 'device-2', label: '协议栈指纹', sublabel: 'Profinet/TSN', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#58b2ff', type: 'device' },
+        { id: 'device-3', label: '密钥管理', sublabel: 'X.509/SM2', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#6cc6ff', type: 'device' },
+        { id: 'device-4', label: '远程证明', sublabel: 'TEE/DICE', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#6cc6ff', type: 'device' },
+        { id: 'device-5', label: '链路安全', sublabel: 'TLS1.3', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#80d6ff', type: 'device' },
+        { id: 'device-6', label: '行为基线', sublabel: '时序/功耗', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#80d6ff', type: 'device' },
+        { id: 'device-7', label: '态势感知', sublabel: '策略联动', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#94e6ff', type: 'device' },
+        
+        // 访问控制节点 (青色系)
+        { id: 'access-0', label: '统一身份', sublabel: 'IAM/OIDC', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#00d4aa', type: 'access' },
+        { id: 'access-1', label: '属性管理', sublabel: '设备/数据', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#00d4aa', type: 'access' },
+        { id: 'access-2', label: '策略模型', sublabel: 'RBAC/PBAC', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#1ae6bb', type: 'access' },
+        { id: 'access-3', label: '策略引擎', sublabel: 'OPA/Casbin', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#1ae6bb', type: 'access' },
+        { id: 'access-4', label: '上下文感知', sublabel: '态势/时空', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#33f5cc', type: 'access' },
+        { id: 'access-5', label: '端侧执行', sublabel: '沙箱', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#33f5cc', type: 'access' },
+        { id: 'access-6', label: '云侧执行', sublabel: 'API网关', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#4dffdd', type: 'access' },
+        { id: 'access-7', label: '审计合规', sublabel: '回放/灰度', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#4dffdd', type: 'access' },
+        
+        // DDoS检测节点 (橙色系)
+        { id: 'ddos-0', label: '流量采集', sublabel: 'eBPF/DPDK', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ff9d00', type: 'ddos' },
+        { id: 'ddos-1', label: '镜像流', sublabel: 'NetFlow', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ff9d00', type: 'ddos' },
+        { id: 'ddos-2', label: '特征工程', sublabel: '熵/突发', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffb133', type: 'ddos' },
+        { id: 'ddos-3', label: '检测模型', sublabel: 'LSTM', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffb133', type: 'ddos' },
+        { id: 'ddos-4', label: '攻击溯源', sublabel: 'IP画像', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffc466', type: 'ddos' },
+        { id: 'ddos-5', label: '自动处置', sublabel: 'ACL/清洗', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffc466', type: 'ddos' },
+        { id: 'ddos-6', label: '可视化', sublabel: '看板/告警', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffd799', type: 'ddos' },
+        { id: 'ddos-7', label: '自学习', sublabel: '自适应', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffd799', type: 'ddos' }
+      ]
+      
+      // 随机初始化位置
+      nodes.forEach(node => {
+        node.x = Math.random() * width
+        node.y = Math.random() * height
+        node.vx = (Math.random() - 0.5) * 2
+        node.vy = (Math.random() - 0.5) * 2
+      })
+      
+      // 定义连接关系
+      links = [
+        // 设备认证内部连接
+        { source: 'device-0', target: 'device-1', strength: 0.8 },
+        { source: 'device-0', target: 'device-3', strength: 0.9 },
+        { source: 'device-1', target: 'device-2', strength: 0.7 },
+        { source: 'device-3', target: 'device-4', strength: 0.8 },
+        { source: 'device-4', target: 'device-5', strength: 0.7 },
+        { source: 'device-5', target: 'device-7', strength: 0.6 },
+        { source: 'device-6', target: 'device-7', strength: 0.8 },
+        
+        // 访问控制内部连接
+        { source: 'access-0', target: 'access-1', strength: 0.9 },
+        { source: 'access-1', target: 'access-2', strength: 0.8 },
+        { source: 'access-2', target: 'access-3', strength: 0.9 },
+        { source: 'access-3', target: 'access-4', strength: 0.7 },
+        { source: 'access-4', target: 'access-5', strength: 0.6 },
+        { source: 'access-4', target: 'access-6', strength: 0.6 },
+        { source: 'access-5', target: 'access-7', strength: 0.5 },
+        { source: 'access-6', target: 'access-7', strength: 0.5 },
+        
+        // DDoS检测内部连接
+        { source: 'ddos-0', target: 'ddos-1', strength: 0.8 },
+        { source: 'ddos-0', target: 'ddos-2', strength: 0.9 },
+        { source: 'ddos-1', target: 'ddos-2', strength: 0.7 },
+        { source: 'ddos-2', target: 'ddos-3', strength: 0.9 },
+        { source: 'ddos-3', target: 'ddos-4', strength: 0.7 },
+        { source: 'ddos-4', target: 'ddos-5', strength: 0.8 },
+        { source: 'ddos-5', target: 'ddos-6', strength: 0.6 },
+        { source: 'ddos-6', target: 'ddos-7', strength: 0.7 },
+        
+        // 跨模块连接
+        { source: 'device-0', target: 'access-0', strength: 0.8 },
+        { source: 'device-3', target: 'access-2', strength: 0.9 },
+        { source: 'device-4', target: 'access-4', strength: 0.6 },
+        { source: 'device-7', target: 'access-7', strength: 0.7 },
+        
+        { source: 'access-4', target: 'ddos-2', strength: 0.7 },
+        { source: 'access-6', target: 'ddos-5', strength: 0.8 },
+        { source: 'access-7', target: 'ddos-6', strength: 0.6 },
+        
+        { source: 'device-6', target: 'ddos-2', strength: 0.5 },
+        { source: 'device-7', target: 'ddos-4', strength: 0.6 },
+        { source: 'device-5', target: 'ddos-5', strength: 0.5 }
+      ]
+    }
+
+    // 力导向布局算法
+    const updatePhysics = () => {
+      const centerX = canvas.value.width / 2
+      const centerY = canvas.value.height / 2
+      const damping = 0.8
+      
+      // 应用力
+      nodes.forEach(node => {
+        // 重力 - 吸引到中心
+        const dx = centerX - node.x
+        const dy = centerY - node.y
+        const distToCenter = Math.sqrt(dx * dx + dy * dy)
+        node.vx += (dx / distToCenter) * 0.01
+        node.vy += (dy / distToCenter) * 0.01
+        
+        // 节点间排斥力
+        nodes.forEach(other => {
+          if (node !== other) {
+            const dx = node.x - other.x
+            const dy = node.y - other.y
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1
+            const force = 3000 / (dist * dist)
+            node.vx += (dx / dist) * force
+            node.vy += (dy / dist) * force
+          }
+        })
+      })
+      
+      // 连接的吸引力
+      links.forEach(link => {
+        const source = nodes.find(n => n.id === link.source)
+        const target = nodes.find(n => n.id === link.target)
+        if (!source || !target) return
+        
+        const dx = target.x - source.x
+        const dy = target.y - source.y
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1
+        const force = (dist - 150) * 0.01 * link.strength
+        
+        source.vx += (dx / dist) * force
+        source.vy += (dy / dist) * force
+        target.vx -= (dx / dist) * force
+        target.vy -= (dy / dist) * force
+      })
+      
+      // 更新位置
+      nodes.forEach(node => {
+        node.vx *= damping
+        node.vy *= damping
+        node.x += node.vx
+        node.y += node.vy
+        
+        // 边界检查
+        const margin = 60
+        if (node.x < margin) { node.x = margin; node.vx *= -0.5 }
+        if (node.x > canvas.value.width - margin) { node.x = canvas.value.width - margin; node.vx *= -0.5 }
+        if (node.y < margin) { node.y = margin; node.vy *= -0.5 }
+        if (node.y > canvas.value.height - margin) { node.y = canvas.value.height - margin; node.vy *= -0.5 }
+      })
+    }
+
+    // 绘制图形
+    const draw = () => {
+      if (!ctx) return
+      
+      // 清空画布
+      ctx.fillStyle = 'rgba(3, 13, 23, 0.3)'
+      ctx.fillRect(0, 0, canvas.value.width, canvas.value.height)
+      
+      // 绘制连接线
+      links.forEach(link => {
+        const source = nodes.find(n => n.id === link.source)
+        const target = nodes.find(n => n.id === link.target)
+        if (!source || !target) return
+        
+        const gradient = ctx.createLinearGradient(source.x, source.y, target.x, target.y)
+        gradient.addColorStop(0, source.color + '40')
+        gradient.addColorStop(1, target.color + '40')
+        
+        ctx.strokeStyle = gradient
+        ctx.lineWidth = link.strength * 2
+        ctx.beginPath()
+        ctx.moveTo(source.x, source.y)
+        ctx.lineTo(target.x, target.y)
+        ctx.stroke()
+        
+        // 发光效果
+        if (hoveredNode.value && (link.source === hoveredNode.value.id || link.target === hoveredNode.value.id)) {
+          ctx.shadowBlur = 20
+          ctx.shadowColor = source.color
+          ctx.strokeStyle = source.color + 'cc'
+          ctx.lineWidth = link.strength * 3
+          ctx.stroke()
+          ctx.shadowBlur = 0
+        }
+      })
+      
+      // 绘制节点
+      nodes.forEach(node => {
+        const isHovered = hoveredNode.value && hoveredNode.value.id === node.id
+        const radius = isHovered ? 28 : 20
+        
+        // 外发光
+        ctx.shadowBlur = isHovered ? 30 : 15
+        ctx.shadowColor = node.color
+        
+        // 节点外圈
+        ctx.beginPath()
+        ctx.arc(node.x, node.y, radius + 4, 0, Math.PI * 2)
+        ctx.fillStyle = node.color + '40'
+        ctx.fill()
+        
+        // 节点主体
+        const gradient = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, radius)
+        gradient.addColorStop(0, node.color)
+        gradient.addColorStop(1, node.color + '80')
+        
+        ctx.beginPath()
+        ctx.arc(node.x, node.y, radius, 0, Math.PI * 2)
+        ctx.fillStyle = gradient
+        ctx.fill()
+        
+        ctx.shadowBlur = 0
+        
+        // 绘制标签
+        ctx.fillStyle = '#d6e8ff'
+        ctx.font = isHovered ? 'bold 13px Arial' : '11px Arial'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(node.label, node.x, node.y - radius - 12)
+        
+        if (isHovered && node.sublabel) {
+          ctx.fillStyle = '#80d6ff'
+          ctx.font = '10px Consolas'
+          ctx.fillText(node.sublabel, node.x, node.y - radius - 26)
+        }
+      })
+    }
+
+    // 动画循环
+    const animate = () => {
+      updatePhysics()
+      draw()
+      animationId = requestAnimationFrame(animate)
+    }
+
+    // 鼠标交互
+    const handleMouseMove = (e) => {
+      const rect = canvas.value.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      
+      let found = null
+      for (const node of nodes) {
+        const dist = Math.sqrt((x - node.x) ** 2 + (y - node.y) ** 2)
+        if (dist < 30) {
+          found = node
+          break
+        }
+      }
+      
+      hoveredNode.value = found
+      if (found) {
+        infoPosition.value = { x: e.clientX + 20, y: e.clientY - 20 }
+      }
+      
+      canvas.value.style.cursor = found ? 'pointer' : 'default'
+    }
+
+    const getConnections = (nodeId) => {
+      return links.filter(link => link.source === nodeId || link.target === nodeId)
+    }
+
+    const handleResize = () => {
+      if (!canvas.value) return
+      canvas.value.width = canvas.value.offsetWidth
+      canvas.value.height = canvas.value.offsetHeight
+    }
+
+    onMounted(() => {
+      nextTick(() => {
+        if (!canvas.value) return
+        
+        canvas.value.width = canvas.value.offsetWidth
+        canvas.value.height = canvas.value.offsetHeight
+        ctx = canvas.value.getContext('2d')
+        
+        initGraph()
+        animate()
+        
+        canvas.value.addEventListener('mousemove', handleMouseMove)
+        window.addEventListener('resize', handleResize)
+      })
+    })
+
+    onUnmounted(() => {
+      if (animationId) {
+        cancelAnimationFrame(animationId)
+      }
+      if (canvas.value) {
+        canvas.value.removeEventListener('mousemove', handleMouseMove)
+      }
+      window.removeEventListener('resize', handleResize)
+    })
+
     return {
       navigateToEdgeModel,
       navigateToAccessControl,
-      navigateToDeviceVerification
+      navigateToDeviceVerification,
+      navigateToDDoS,
+      canvas,
+      hoveredNode,
+      infoPosition,
+      getConnections
     }
   }
 }
@@ -120,6 +498,13 @@ export default {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 24px;
+}
+
+.module-wrapper {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  gap: 12px;
+  align-content: start;
 }
 
 .card {
@@ -156,7 +541,8 @@ export default {
 }
 
 .device-chip-group,
-.access-chip-group {
+.access-chip-group,
+.ddos-chip-group {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
@@ -173,11 +559,22 @@ export default {
   transition: all 0.3s ease;
   color: inherit;
   font-family: inherit;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.chip span {
+  display: inline-block;
 }
 
 .chip:hover {
   background: rgba(128, 214, 255, 0.2);
   border-color: rgba(128, 214, 255, 0.35);
+}
+
+.chip-invisible {
+  visibility: hidden;
+  pointer-events: none;
 }
 .clickable {
   cursor: pointer;
@@ -209,5 +606,162 @@ export default {
   padding: 8px 12px;
 }
 
+/* 技术路线关系图样式 */
+.tech-roadmap {
+  margin-top: 48px;
+  padding: 32px;
+  background: linear-gradient(160deg, rgba(4, 21, 38, 0.8), rgba(3, 13, 23, 0.7));
+  border-radius: 24px;
+  border: 1px solid rgba(88, 178, 255, 0.25);
+  box-shadow: 0 0 50px rgba(88, 178, 255, 0.15), inset 0 0 80px rgba(88, 178, 255, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.tech-roadmap::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(88, 178, 255, 0.8), transparent);
+}
+
+.roadmap-title {
+  font-size: 28px;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, #d6e8ff, rgba(128, 214, 255, 0.9));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 3px;
+  text-shadow: 0 0 30px rgba(88, 178, 255, 0.5);
+}
+
+.roadmap-canvas-wrapper {
+  position: relative;
+  width: 100%;
+  height: 700px;
+  background: radial-gradient(circle at center, rgba(4, 21, 38, 0.3), rgba(3, 13, 23, 0.5));
+  border-radius: 16px;
+  border: 1px solid rgba(88, 178, 255, 0.15);
+  overflow: hidden;
+}
+
+.roadmap-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.legend {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(4, 21, 38, 0.9);
+  border: 1px solid rgba(88, 178, 255, 0.3);
+  border-radius: 12px;
+  padding: 20px 24px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+  font-size: 15px;
+  color: #d6e8ff;
+  font-weight: 500;
+}
+
+.legend .dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  box-shadow: 0 0 12px currentColor;
+}
+
+.device-color {
+  background: #58b2ff;
+  color: #58b2ff;
+}
+
+.access-color {
+  background: #00d4aa;
+  color: #00d4aa;
+}
+
+.ddos-color {
+  background: #ff9d00;
+  color: #ff9d00;
+}
+
+.node-info {
+  position: fixed;
+  background: linear-gradient(135deg, rgba(9, 32, 56, 0.98), rgba(4, 19, 34, 0.98));
+  border: 1px solid rgba(88, 178, 255, 0.4);
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 0 30px rgba(88, 178, 255, 0.3), inset 0 0 20px rgba(88, 178, 255, 0.05);
+  backdrop-filter: blur(15px);
+  pointer-events: none;
+  z-index: 1000;
+  min-width: 220px;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.info-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #d6e8ff;
+  margin-bottom: 8px;
+  text-shadow: 0 0 10px rgba(88, 178, 255, 0.5);
+}
+
+.info-category {
+  font-size: 12px;
+  color: rgba(128, 214, 255, 0.8);
+  margin-bottom: 6px;
+  padding: 4px 8px;
+  background: rgba(88, 178, 255, 0.1);
+  border-radius: 6px;
+  display: inline-block;
+}
+
+.info-tech {
+  font-size: 11px;
+  color: rgba(160, 230, 255, 0.9);
+  font-family: 'Consolas', 'Monaco', monospace;
+  margin-bottom: 8px;
+  padding: 4px 8px;
+  background: rgba(88, 178, 255, 0.05);
+  border-radius: 4px;
+}
+
+.info-connections {
+  font-size: 11px;
+  color: rgba(128, 214, 255, 0.7);
+  padding-top: 8px;
+  border-top: 1px solid rgba(88, 178, 255, 0.2);
+}
+
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.18s ease; }
 </style>
 
