@@ -270,7 +270,7 @@ const handleSubmit = async () => {
     console.log('提交的设备数据:', submitData)
     
     let response
-    if (isEditMode.value && deviceDetail.value) {
+    if (isEditMode.value && deviceDetail.value && deviceDetail.value.id) {
       // 更新现有设备
       response = await updateDevice(deviceDetail.value.id, submitData)
       

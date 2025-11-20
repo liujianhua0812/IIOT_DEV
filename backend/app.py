@@ -909,7 +909,7 @@ def register_routes(app: Flask) -> None:
                 device_type = device.device_type.code if device.device_type else None
                 if device_type == 'camera':
                     cameras.append(device_dict)
-                elif device_type == 'signal_controller':
+                elif device_type == 'traffic_signal_controller':
                     signal_controllers.append(device_dict)
                 elif device_type == 'switch':
                     switches.append(device_dict)

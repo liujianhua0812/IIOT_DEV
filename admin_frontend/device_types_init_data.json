@@ -170,6 +170,49 @@
         "required": false
       }
     ]
+  },
+  {
+    "name": "交通信号机",
+    "code": "traffic_signal_controller",
+    "description": "交通信号灯控制器，用于控制路口交通信号灯的运行",
+    "parameters": [
+      {
+        "name": "型号",
+        "key": "model",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "IP地址",
+        "key": "ip_address",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "端口",
+        "key": "port",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "控制模式",
+        "key": "control_mode",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "相位数量",
+        "key": "phase_count",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "通信协议",
+        "key": "communication_protocol",
+        "type": "string",
+        "required": false
+      }
+    ]
   }
 ]
 

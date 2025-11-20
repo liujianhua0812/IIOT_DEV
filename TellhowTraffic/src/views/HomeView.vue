@@ -11,6 +11,8 @@ import {
 } from '../services/api'
 import SphericalCameraIcon from '../assets/icons/SphericalCamera.svg?url'
 import MonitorCameraIcon from '../assets/icons/MonitorCamera.svg?url'
+import SignalControllerIcon from '../assets/icons/signal_controller.svg?url'
+import TSNSwitchIcon from '../assets/icons/tsn_switch.svg?url'
 
 const router = useRouter()
 
@@ -227,7 +229,7 @@ const loadAllDevices = async () => {
           
           if (deviceType === 'camera' && showCameras.value) {
             addCameraMarker(device, { longitude: device.longitude, latitude: device.latitude })
-          } else if (deviceType === 'signal_controller' && showSignalControllers.value) {
+          } else if ((deviceType === 'traffic_signal_controller' || deviceType === 'signal_controller') && showSignalControllers.value) {
             addSignalMarker(device, { longitude: device.longitude, latitude: device.latitude })
           } else if (deviceType === 'switch' && showSwitches.value) {
             addSwitchMarker(device, { longitude: device.longitude, latitude: device.latitude })
@@ -365,9 +367,9 @@ const addSignalMarker = (signal, intersection) => {
   const lng = signal.longitude || intersection.longitude || 112.927831
   
   const icon = new AMap.Icon({
-    size: new AMap.Size(28, 28),
-    image: createMarkerIcon('#ff6b6b', '信', 28),
-    imageSize: new AMap.Size(28, 28),
+    size: new AMap.Size(32, 32),
+    image: SignalControllerIcon,
+    imageSize: new AMap.Size(32, 32),
     imageOffset: new AMap.Pixel(0, 0)
   })
   
@@ -377,7 +379,7 @@ const addSignalMarker = (signal, intersection) => {
     position: [lng, lat],
     icon: icon,
     title: signal.name,
-    offset: new AMap.Pixel(-14, -14)
+    offset: new AMap.Pixel(-16, -16)
   })
   
   const infoWindow = new AMap.InfoWindow({
@@ -403,9 +405,9 @@ const addSwitchMarker = (switchDevice, intersection) => {
   const lng = switchDevice.longitude || intersection.longitude || 112.927831
   
   const icon = new AMap.Icon({
-    size: new AMap.Size(28, 28),
-    image: createMarkerIcon('#909399', '交', 28),
-    imageSize: new AMap.Size(28, 28),
+    size: new AMap.Size(32, 32),
+    image: TSNSwitchIcon,
+    imageSize: new AMap.Size(32, 32),
     imageOffset: new AMap.Pixel(0, 0)
   })
   
@@ -415,7 +417,7 @@ const addSwitchMarker = (switchDevice, intersection) => {
     position: [lng, lat],
     icon: icon,
     title: switchDevice.name,
-    offset: new AMap.Pixel(-14, -14)
+    offset: new AMap.Pixel(-16, -16)
   })
   
   const infoWindow = new AMap.InfoWindow({
