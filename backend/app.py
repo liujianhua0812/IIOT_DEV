@@ -955,6 +955,7 @@ def register_routes(app: Flask) -> None:
             cameras = []
             signal_controllers = []
             switches = []
+            guidance_screens = []
             
             for device in devices:
                 # 从参数值中获取 ip_address
@@ -987,13 +988,36 @@ def register_routes(app: Flask) -> None:
                     signal_controllers.append(device_dict)
                 elif device_type == 'switch':
                     switches.append(device_dict)
+                elif device_type == 'traffic_guidance_screen':
+                    guidance_screens.append(device_dict)
             
             # 构建返回数据
+            # 查询拓扑关系（仅包含返回的设备之间的连接）
+            device_codes = [device["code"] for device in devices_data if device.get("code")]
+            topologies_data = []
+            if device_codes:
+                topologies = db.query(DeviceTopology).filter(
+                    DeviceTopology.source_device_code.in_(device_codes),
+                    DeviceTopology.target_device_code.in_(device_codes)
+                ).all()
+                topologies_data = [
+                    {
+                        "id": topology.id,
+                        "source_device_code": topology.source_device_code,
+                        "target_device_code": topology.target_device_code,
+                        "connection_type": topology.connection_type,
+                        "description": topology.description
+                    }
+                    for topology in topologies
+                ]
+            
             result = {
                 "devices": devices_data,
                 "cameras": cameras,
                 "signal_controllers": signal_controllers,
-                "switches": switches
+                "switches": switches,
+                "guidance_screens": guidance_screens,
+                "topologies": topologies_data
             }
             
             # 如果指定了路口ID，返回该路口的详细信息

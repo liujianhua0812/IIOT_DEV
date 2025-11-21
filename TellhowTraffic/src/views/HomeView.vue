@@ -13,6 +13,7 @@ import SphericalCameraIcon from '../assets/icons/SphericalCamera.svg?url'
 import MonitorCameraIcon from '../assets/icons/MonitorCamera.svg?url'
 import SignalControllerIcon from '../assets/icons/signal_controller.svg?url'
 import TSNSwitchIcon from '../assets/icons/tsn_switch.svg?url'
+import ScreenIcon from '../assets/icons/screen.svg?url'
 
 const router = useRouter()
 
@@ -28,6 +29,8 @@ const intersections = ref([])
 const showCameras = ref(true)
 const showSignalControllers = ref(true)
 const showSwitches = ref(false)
+const showGuidanceScreens = ref(false)
+const showTopology = ref(false)
 const currentCameraInfo = ref(null)
 const currentVideoStream = ref(null)
 const videoDialogVisible = ref(false)
@@ -42,7 +45,35 @@ const videoEventHandlers = ref({
 
 let map = null
 let markers = []
+let topologyLines = []
 let hls = null
+let activeInfoWindow = null
+
+const closeActiveInfoWindow = () => {
+  if (activeInfoWindow) {
+    activeInfoWindow.close()
+    activeInfoWindow = null
+  }
+}
+
+const openInfoWindow = (infoWindow, marker) => {
+  if (!map || !infoWindow || !marker) return
+  if (activeInfoWindow && activeInfoWindow !== infoWindow) {
+    activeInfoWindow.close()
+  }
+  activeInfoWindow = infoWindow
+  infoWindow.open(map, marker.getPosition())
+}
+
+const clearTopologyLines = () => {
+  if (!map || !topologyLines.length) return
+  topologyLines.forEach(line => {
+    if (line && map && map.remove) {
+      map.remove(line)
+    }
+  })
+  topologyLines = []
+}
 
 const loadData = async () => {
   loading.value = true
@@ -77,6 +108,7 @@ onUnmounted(() => {
   if (hls) {
     hls.destroy()
   }
+  window.__closeAMapInfoWindow = null
 })
 
 const loadIntersections = async () => {
@@ -102,22 +134,47 @@ const loadIntersectionData = async (intersectionId) => {
     clearMarkers()
     addIntersectionMarker(intersection)
     
-    if (showCameras.value && data.cameras) {
+    const shouldShowAll = showTopology.value
+
+    const aggregatedDevices = [
+      ...(data.cameras || []),
+      ...(data.signal_controllers || []),
+      ...(data.switches || []),
+      ...(data.guidance_screens || [])
+    ]
+
+    if ((shouldShowAll || showCameras.value) && data.cameras) {
       data.cameras.forEach((camera) => {
         addCameraMarker(camera, intersection)
       })
     }
     
-    if (showSignalControllers.value && data.signal_controllers) {
+    if ((shouldShowAll || showSignalControllers.value) && data.signal_controllers) {
       data.signal_controllers.forEach((signal) => {
         addSignalMarker(signal, intersection)
       })
     }
     
-    if (showSwitches.value && data.switches) {
+    if ((shouldShowAll || showSwitches.value) && data.switches) {
       data.switches.forEach((switchDevice) => {
         addSwitchMarker(switchDevice, intersection)
       })
+    }
+
+    if ((shouldShowAll || showGuidanceScreens.value) && data.guidance_screens) {
+      data.guidance_screens.forEach((screen) => {
+        addGuidanceScreenMarker(screen, intersection)
+      })
+    }
+
+    if (showTopology.value) {
+      updateTopologyLines({
+        hub: intersection,
+        devices: aggregatedDevices,
+        connections: data.topologies || []
+      })
+    } else {
+      clearTopologyLines()
     }
   } catch (error) {
     console.error('加载路口数据失败:', error)
@@ -176,6 +233,13 @@ const initAMapInstance = () => {
   map.on('complete', () => {
     loadAllDevices()
   })
+  map.on('click', () => {
+    closeActiveInfoWindow()
+  })
+
+  window.__closeAMapInfoWindow = () => {
+    closeActiveInfoWindow()
+  }
 }
 
 const loadAllDevices = async () => {
@@ -217,6 +281,8 @@ const loadAllDevices = async () => {
       })
     }
     
+    const shouldShowAll = showTopology.value
+
     if (data.devices && Array.isArray(data.devices)) {
       data.devices.forEach((device) => {
         try {
@@ -227,17 +293,28 @@ const loadAllDevices = async () => {
           
           const deviceType = device.device_type || device.type || 'camera'
           
-          if (deviceType === 'camera' && showCameras.value) {
+          if (deviceType === 'camera' && (shouldShowAll || showCameras.value)) {
             addCameraMarker(device, { longitude: device.longitude, latitude: device.latitude })
-          } else if ((deviceType === 'traffic_signal_controller' || deviceType === 'signal_controller') && showSignalControllers.value) {
+          } else if ((deviceType === 'traffic_signal_controller' || deviceType === 'signal_controller') && (shouldShowAll || showSignalControllers.value)) {
             addSignalMarker(device, { longitude: device.longitude, latitude: device.latitude })
-          } else if (deviceType === 'switch' && showSwitches.value) {
+          } else if (deviceType === 'switch' && (shouldShowAll || showSwitches.value)) {
             addSwitchMarker(device, { longitude: device.longitude, latitude: device.latitude })
+          } else if (deviceType === 'traffic_guidance_screen' && (shouldShowAll || showGuidanceScreens.value)) {
+            addGuidanceScreenMarker(device, { longitude: device.longitude, latitude: device.latitude })
           }
         } catch (deviceError) {
           console.error('添加设备标记失败:', device, deviceError)
         }
       })
+    }
+
+    if (showTopology.value) {
+      updateTopologyLines({
+        devices: data.devices || [],
+        connections: data.topologies || []
+      })
+    } else {
+      clearTopologyLines()
     }
   } catch (error) {
     console.error('加载设备数据失败:', error)
@@ -274,7 +351,7 @@ const addIntersectionMarker = (intersection) => {
   marker.on('click', () => {
     selectedIntersection.value = intersection.id
     loadIntersectionData(intersection.id)
-    infoWindow.open(map, marker.getPosition())
+    openInfoWindow(infoWindow, marker)
   })
   
   map.add(marker)
@@ -306,6 +383,179 @@ const getStatusClass = (status) => {
   if (status === 'fault' || status === '故障') return 'fault'
   if (status === 'maintenance') return 'inactive'
   return 'unknown'
+}
+
+const buildDeviceInfoWindowContent = ({ title, subtitle, status, fields = [], location }) => {
+  const statusText = getStatusText(status)
+  const statusClass = getStatusClass(status)
+  const statusColorMap = {
+    active: { bg: 'rgba(76, 217, 100, 0.18)', color: '#4CD964' },
+    fault: { bg: 'rgba(255, 107, 107, 0.18)', color: '#FF6B6B' },
+    inactive: { bg: 'rgba(255, 193, 7, 0.2)', color: '#FFC107' },
+    unknown: { bg: 'rgba(167, 181, 199, 0.18)', color: '#A7B5C7' }
+  }
+  const currentStatusColor = statusColorMap[statusClass] || statusColorMap.unknown
+  const infoRows = fields
+    .filter(field => field && field.value !== undefined && field.value !== null && field.value !== '')
+    .map(field => {
+      const valueText = typeof field.value === 'number' ? field.value : field.value
+      return `
+        <div style="display:flex; justify-content:space-between; gap:12px; align-items:center;">
+          <span style="opacity:0.72; font-size:12px;">${field.label}</span>
+          <span style="font-weight:600; font-size:13px; color:#F0F6FF;">${valueText}</span>
+        </div>
+      `
+    })
+    .join('')
+
+  const hasLocation =
+    location &&
+    location.longitude !== undefined &&
+    location.latitude !== undefined &&
+    !Number.isNaN(Number(location.longitude)) &&
+    !Number.isNaN(Number(location.latitude))
+
+  const locationRow = hasLocation
+    ? `<div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.08); font-size:12px; opacity:0.78;">
+        坐标：${Number(location.longitude).toFixed(6)}, ${Number(location.latitude).toFixed(6)}
+       </div>`
+    : ''
+
+  return `
+    <div style="
+      background: linear-gradient(160deg, rgba(9, 32, 52, 0.96), rgba(4, 15, 26, 0.94));
+      border: 1px solid rgba(88, 178, 255, 0.25);
+      border-radius: 18px;
+      padding: 16px 18px;
+      color: #E8F4FF;
+      min-width: 260px;
+      box-shadow: 0 24px 48px rgba(0,0,0,0.45);
+      font-family: 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+    ">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+        <div>
+          <div style="font-size:12px; letter-spacing:1px; opacity:0.75;">${subtitle || '智能设备'}</div>
+          <div style="font-size:18px; font-weight:600; margin-top:4px; letter-spacing:0.5px;">${title || '未命名设备'}</div>
+        </div>
+        <span style="
+          padding: 4px 12px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 600;
+          color: ${currentStatusColor.color};
+          background: ${currentStatusColor.bg};
+        ">
+          ${statusText}
+        </span>
+        <button 
+          type="button" 
+          style="
+            margin-left: 12px;
+            border: none;
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 28px;
+          "
+          onclick="window.__closeAMapInfoWindow && window.__closeAMapInfoWindow()"
+        >
+          ×
+        </button>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        ${infoRows || `<div style="opacity:0.7; font-size:13px;">暂无详细信息</div>`}
+      </div>
+      ${locationRow}
+    </div>
+  `
+}
+
+const updateTopologyLines = ({ hub = null, devices = [], connections = [] }) => {
+  if (!map || !showTopology.value) return
+  clearTopologyLines()
+
+  const validDevices = (devices || []).filter(device => {
+    return device && typeof device.longitude === 'number' && typeof device.latitude === 'number' &&
+           !isNaN(device.longitude) && !isNaN(device.latitude)
+  })
+
+  if (connections && connections.length) {
+    const deviceMap = new Map()
+    validDevices.forEach(device => {
+      const code = String(device.code || device.serial_number || device.id || '')
+      if (!code) return
+      deviceMap.set(code, {
+        lng: Number(device.longitude),
+        lat: Number(device.latitude)
+      })
+    })
+
+    connections.forEach(connection => {
+      const sourceCode = String(connection.source_device_code || connection.source || '')
+      const targetCode = String(connection.target_device_code || connection.target || '')
+      const source = deviceMap.get(sourceCode)
+      const target = deviceMap.get(targetCode)
+      if (!source || !target) return
+
+      const color = connection.connection_type === 'control' ? '#FFA500'
+        : connection.connection_type === 'video' ? '#FF6B6B'
+        : '#58B2FF'
+
+      const polyline = new AMap.Polyline({
+        path: [
+          [source.lng, source.lat],
+          [target.lng, target.lat]
+        ],
+        strokeColor: color,
+        strokeOpacity: 0.85,
+        strokeWeight: 3,
+        lineJoin: 'round'
+      })
+      map.add(polyline)
+      topologyLines.push(polyline)
+    })
+    return
+  }
+
+  if (hub && typeof hub.longitude === 'number' && typeof hub.latitude === 'number') {
+    validDevices.forEach(device => {
+      const polyline = new AMap.Polyline({
+        path: [
+          [hub.longitude, hub.latitude],
+          [Number(device.longitude), Number(device.latitude)]
+        ],
+        strokeColor: '#58B2FF',
+        strokeOpacity: 0.8,
+        strokeWeight: 3,
+        lineJoin: 'round',
+        showDir: true
+      })
+      map.add(polyline)
+      topologyLines.push(polyline)
+    })
+  } else if (validDevices.length > 1) {
+    for (let i = 0; i < validDevices.length - 1; i++) {
+      const current = validDevices[i]
+      const next = validDevices[i + 1]
+      const polyline = new AMap.Polyline({
+        path: [
+          [Number(current.longitude), Number(current.latitude)],
+          [Number(next.longitude), Number(next.latitude)]
+        ],
+        strokeColor: '#58B2FF',
+        strokeOpacity: 0.8,
+        strokeWeight: 3,
+        lineJoin: 'round',
+        showDir: true
+      })
+      map.add(polyline)
+      topologyLines.push(polyline)
+    }
+  }
 }
 
 const addCameraMarker = (camera, intersection) => {
@@ -367,9 +617,9 @@ const addSignalMarker = (signal, intersection) => {
   const lng = signal.longitude || intersection.longitude || 112.927831
   
   const icon = new AMap.Icon({
-    size: new AMap.Size(32, 32),
+    size: new AMap.Size(64, 64),
     image: SignalControllerIcon,
-    imageSize: new AMap.Size(32, 32),
+    imageSize: new AMap.Size(64, 64),
     imageOffset: new AMap.Pixel(0, 0)
   })
   
@@ -379,16 +629,32 @@ const addSignalMarker = (signal, intersection) => {
     position: [lng, lat],
     icon: icon,
     title: signal.name,
-    offset: new AMap.Pixel(-16, -16)
+    offset: new AMap.Pixel(-32, -32)
   })
   
   const infoWindow = new AMap.InfoWindow({
-    content: `<div style="padding: 10px; color: #d6ecff;"><b>${signal.name}</b><br/>IP: ${signal.ip_address || 'N/A'}<br/>相位: ${signal.phase_count || 0}个<br/>状态: ${statusText}</div>`,
-    offset: new AMap.Pixel(0, -30)
+    isCustom: true,
+    content: buildDeviceInfoWindowContent({
+      title: signal.name || '交通信号机',
+      subtitle: '交通信号控制器',
+      status: signal.status,
+      fields: [
+        { label: '设备编号', value: signal.code || signal.serial_number || 'N/A' },
+        { label: 'IP 地址', value: signal.ip_address || signal.parameters?.ip_address || 'N/A' },
+        { label: '相位数量', value: signal.phase_count !== undefined && signal.phase_count !== null ? `${signal.phase_count} 个` : null },
+        { label: '控制模式', value: signal.control_mode || signal.parameters?.control_mode },
+        { label: '通信协议', value: signal.communication_protocol || signal.parameters?.communication_protocol }
+      ],
+      location: {
+        longitude: signal.longitude || intersection.longitude,
+        latitude: signal.latitude || intersection.latitude
+      }
+    }),
+    offset: new AMap.Pixel(0, -50)
   })
   
   marker.on('click', () => {
-    infoWindow.open(map, marker.getPosition())
+    openInfoWindow(infoWindow, marker)
   })
   
   map.add(marker)
@@ -405,9 +671,9 @@ const addSwitchMarker = (switchDevice, intersection) => {
   const lng = switchDevice.longitude || intersection.longitude || 112.927831
   
   const icon = new AMap.Icon({
-    size: new AMap.Size(32, 32),
+    size: new AMap.Size(64, 64),
     image: TSNSwitchIcon,
-    imageSize: new AMap.Size(32, 32),
+    imageSize: new AMap.Size(64, 64),
     imageOffset: new AMap.Pixel(0, 0)
   })
   
@@ -417,29 +683,102 @@ const addSwitchMarker = (switchDevice, intersection) => {
     position: [lng, lat],
     icon: icon,
     title: switchDevice.name,
-    offset: new AMap.Pixel(-16, -16)
+    offset: new AMap.Pixel(-32, -32)
   })
   
   const infoWindow = new AMap.InfoWindow({
-    content: `<div style="padding: 10px; color: #d6ecff;"><b>${switchDevice.name}</b><br/>IP: ${switchDevice.ip_address || 'N/A'}<br/>端口数: ${switchDevice.port_count || 0}<br/>状态: ${statusText}</div>`,
-    offset: new AMap.Pixel(0, -30)
+    isCustom: true,
+    content: buildDeviceInfoWindowContent({
+      title: switchDevice.name || 'TSN 交换机',
+      subtitle: '工业交换机',
+      status: switchDevice.status,
+      fields: [
+        { label: '设备编号', value: switchDevice.code || switchDevice.serial_number || 'N/A' },
+        { label: '设备型号', value: switchDevice.model || switchDevice.parameters?.model },
+        { label: 'IP 地址', value: switchDevice.ip_address || switchDevice.parameters?.ip_address || 'N/A' },
+        { label: '端口数量', value: switchDevice.port_count !== undefined && switchDevice.port_count !== null ? `${switchDevice.port_count} 个` : switchDevice.parameters?.port_count },
+        { label: '端口类型', value: switchDevice.port_type || switchDevice.parameters?.port_type }
+      ],
+      location: {
+        longitude: switchDevice.longitude || intersection.longitude,
+        latitude: switchDevice.latitude || intersection.latitude
+      }
+    }),
+    offset: new AMap.Pixel(0, -50)
   })
   
   marker.on('click', () => {
-    infoWindow.open(map, marker.getPosition())
+    openInfoWindow(infoWindow, marker)
   })
   
   map.add(marker)
   markers.push(marker)
 }
 
+const addGuidanceScreenMarker = (screen, intersection) => {
+  if (!map) return
+
+  const AMap = window.AMap
+  if (!AMap) return
+
+  const lat = screen.latitude || intersection.latitude || 27.871127
+  const lng = screen.longitude || intersection.longitude || 112.927831
+
+  const icon = new AMap.Icon({
+    size: new AMap.Size(48, 48),
+    image: ScreenIcon,
+    imageSize: new AMap.Size(48, 48),
+    imageOffset: new AMap.Pixel(0, 0)
+  })
+
+  const marker = new AMap.Marker({
+    position: [lng, lat],
+    icon: icon,
+    title: screen.name,
+    offset: new AMap.Pixel(-24, -24)
+  })
+
+  const infoWindow = new AMap.InfoWindow({
+    isCustom: true,
+    content: buildDeviceInfoWindowContent({
+      title: screen.name || '交通诱导屏',
+      subtitle: '交通诱导发布屏',
+      status: screen.status,
+      fields: [
+        { label: '设备编号', value: screen.code || screen.serial_number || 'N/A' },
+        { label: 'IP 地址', value: screen.ip_address || screen.parameters?.ip_address || 'N/A' },
+        { label: '屏幕尺寸', value: screen.screen_size || screen.parameters?.screen_size },
+        { label: '分辨率', value: screen.resolution || screen.parameters?.resolution },
+        { label: '亮度', value: screen.brightness !== undefined && screen.brightness !== null ? `${screen.brightness} cd/m²` : screen.parameters?.brightness },
+        { label: '内容模板', value: screen.content_template || screen.parameters?.content_template }
+      ],
+      location: {
+        longitude: screen.longitude || intersection.longitude,
+        latitude: screen.latitude || intersection.latitude
+      }
+    }),
+    offset: new AMap.Pixel(0, -40)
+  })
+
+  marker.on('click', () => {
+    openInfoWindow(infoWindow, marker)
+  })
+
+  map.add(marker)
+  markers.push(marker)
+}
+
 const clearMarkers = () => {
+  closeActiveInfoWindow()
   markers.forEach(marker => {
     if (marker && map && map.remove) {
       map.remove(marker)
     }
   })
   markers = []
+  if (!showTopology.value) {
+    clearTopologyLines()
+  }
 }
 
 const createMarkerIcon = (color, text, size) => {
@@ -459,8 +798,29 @@ const toggleLayer = (type) => {
     showSignalControllers.value = !showSignalControllers.value
   } else if (type === 'switches') {
     showSwitches.value = !showSwitches.value
+  } else if (type === 'guidance') {
+    showGuidanceScreens.value = !showGuidanceScreens.value
   }
   
+  if (selectedIntersection.value) {
+    loadIntersectionData(selectedIntersection.value)
+  } else {
+    clearMarkers()
+    loadAllDevices()
+  }
+}
+
+const toggleTopologyView = () => {
+  showTopology.value = !showTopology.value
+  if (showTopology.value) {
+    showCameras.value = true
+    showSignalControllers.value = true
+    showSwitches.value = true
+    showGuidanceScreens.value = true
+  } else {
+    clearTopologyLines()
+  }
+
   if (selectedIntersection.value) {
     loadIntersectionData(selectedIntersection.value)
   } else {
@@ -770,6 +1130,18 @@ const handleVideoLoadedData = () => {
             >
               交换机
             </button>
+            <button 
+              :class="['layer-btn', { active: showGuidanceScreens }]"
+              @click="toggleLayer('guidance')"
+            >
+              诱导屏
+            </button>
+            <button 
+              :class="['layer-btn', { active: showTopology }]"
+              @click="toggleTopologyView"
+            >
+              网络拓扑
+            </button>
           </div>
         </div>
       </header>
@@ -794,6 +1166,10 @@ const handleVideoLoadedData = () => {
         <div class="legend-item">
           <span class="legend-icon" style="background: #909399;"></span>
           <span>交换机</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-icon" style="background: #7c4dff;"></span>
+          <span>交通诱导屏</span>
         </div>
       </div>
     </section>

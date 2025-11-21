@@ -213,6 +213,61 @@
         "required": false
       }
     ]
+  },
+  {
+    "name": "交通诱导屏",
+    "code": "traffic_guidance_screen",
+    "description": "交通信息诱导发布屏，用于实时展示道路通行和告警信息",
+    "parameters": [
+      {
+        "name": "型号",
+        "key": "model",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "IP地址",
+        "key": "ip_address",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "通信协议",
+        "key": "communication_protocol",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "屏幕尺寸",
+        "key": "screen_size",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "分辨率",
+        "key": "resolution",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "亮度(cd/m²)",
+        "key": "brightness",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "安装位置",
+        "key": "installation_location",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "内容模板",
+        "key": "content_template",
+        "type": "string",
+        "required": false
+      }
+    ]
   }
 ]
 
