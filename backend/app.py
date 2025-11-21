@@ -956,15 +956,18 @@ def register_routes(app: Flask) -> None:
             signal_controllers = []
             switches = []
             guidance_screens = []
+            traffic_lights = []
             
             for device in devices:
-                # 从参数值中获取 ip_address
+                # 从参数值中获取 ip_address 和 traffic_light_status
                 ip_address = None
+                traffic_light_status = None
                 if device.parameter_values:
                     for pv in device.parameter_values:
                         if pv.param_key == "ip_address":
                             ip_address = pv.param_value
-                            break
+                        elif pv.param_key == "traffic_light_status":
+                            traffic_light_status = pv.param_value
                 
                 device_dict = {
                     "id": device.id,
@@ -978,6 +981,10 @@ def register_routes(app: Flask) -> None:
                     "ip_address": ip_address
                 }
                 
+                # 如果是红绿灯，添加状态信息
+                if device.device_type and device.device_type.code == 'traffic_light':
+                    device_dict["traffic_light_status"] = traffic_light_status
+                
                 devices_data.append(device_dict)
                 
                 # 按设备类型分类
@@ -990,6 +997,8 @@ def register_routes(app: Flask) -> None:
                     switches.append(device_dict)
                 elif device_type == 'traffic_guidance_screen':
                     guidance_screens.append(device_dict)
+                elif device_type == 'traffic_light':
+                    traffic_lights.append(device_dict)
             
             # 构建返回数据
             # 查询拓扑关系（仅包含返回的设备之间的连接）
@@ -1017,6 +1026,7 @@ def register_routes(app: Flask) -> None:
                 "signal_controllers": signal_controllers,
                 "switches": switches,
                 "guidance_screens": guidance_screens,
+                "traffic_lights": traffic_lights,
                 "topologies": topologies_data
             }
             
