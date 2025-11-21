@@ -166,7 +166,7 @@ export default {
       // 创建所有节点
       nodes = [
         // 设备可信认证节点 (蓝色系)
-        { id: 'device-0', label: '硬件指纹', sublabel: 'TPM/PUF', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#58b2ff', type: 'device', 
+        { id: 'device-0', label: '硬件指纹', sublabel: 'TPM/PUF', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#58b2ff', type: 'device',
           children: [
             { label: 'TPM', sublabel: 'Trusted Platform Module', tech: '可信平台模块' },
             { label: 'PUF', sublabel: 'Physical Unclonable Function', tech: '物理不可克隆函数' }
@@ -185,35 +185,35 @@ export default {
             { label: 'EtherCAT', sublabel: 'Ethernet for Control', tech: '实时工业以太网' }
           ]
         },
-        { id: 'device-3', label: '密钥管理', sublabel: 'X.509/SM2', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#6cc6ff', type: 'device',
+        { id: 'device-3', label: '密钥管理', sublabel: 'X.509/SM2', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#58b2ff', type: 'device',
           children: [
             { label: 'X.509', sublabel: 'PKI Certificate', tech: '公钥基础设施证书' },
             { label: 'SM2', sublabel: 'State Cryptography', tech: '国密椭圆曲线算法' },
             { label: 'HSM', sublabel: 'Hardware Security Module', tech: '硬件安全模块' }
           ]
         },
-        { id: 'device-4', label: '远程证明', sublabel: 'TEE/DICE', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#6cc6ff', type: 'device',
+        { id: 'device-4', label: '远程证明', sublabel: 'TEE/DICE', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#58b2ff', type: 'device',
           children: [
             { label: 'TEE', sublabel: 'Trusted Execution Environment', tech: '可信执行环境' },
             { label: 'DICE', sublabel: 'Device Identifier Composition', tech: '设备标识符组合引擎' },
             { label: 'SGX', sublabel: 'Software Guard Extensions', tech: '软件保护扩展' }
           ]
         },
-        { id: 'device-5', label: '链路安全', sublabel: 'TLS1.3', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#80d6ff', type: 'device',
+        { id: 'device-5', label: '链路安全', sublabel: 'TLS1.3', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#58b2ff', type: 'device',
           children: [
             { label: 'TLS 1.3', sublabel: 'Transport Layer Security', tech: '传输层安全协议' },
             { label: 'DTLS', sublabel: 'Datagram TLS', tech: '数据报传输层安全' },
             { label: 'MACsec', sublabel: 'Media Access Control Security', tech: '媒体访问控制安全' }
           ]
         },
-        { id: 'device-6', label: '行为基线', sublabel: '时序/功耗', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#80d6ff', type: 'device',
+        { id: 'device-6', label: '行为基线', sublabel: '时序/功耗', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#58b2ff', type: 'device',
           children: [
             { label: '时序分析', sublabel: 'Timing Analysis', tech: '操作时序特征提取' },
             { label: '功耗分析', sublabel: 'Power Analysis', tech: '功耗模式识别' },
             { label: '行为建模', sublabel: 'Behavior Modeling', tech: '正常行为模型' }
           ]
         },
-        { id: 'device-7', label: '态势感知', sublabel: '策略联动', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#94e6ff', type: 'device',
+        { id: 'device-7', label: '态势感知', sublabel: '策略联动', category: '设备可信认证', x: 0, y: 0, vx: 0, vy: 0, color: '#58b2ff', type: 'device',
           children: [
             { label: '威胁情报', sublabel: 'Threat Intelligence', tech: '威胁情报聚合' },
             { label: '风险评估', sublabel: 'Risk Assessment', tech: '实时风险评分' },
@@ -236,41 +236,41 @@ export default {
             { label: '属性同步', sublabel: 'Attribute Sync', tech: '属性同步机制' }
           ]
         },
-        { id: 'access-2', label: '策略模型', sublabel: 'RBAC/PBAC', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#1ae6bb', type: 'access',
+        { id: 'access-2', label: '策略模型', sublabel: 'RBAC/PBAC', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#00d4aa', type: 'access',
           children: [
             { label: 'RBAC', sublabel: 'Role-Based Access Control', tech: '基于角色访问控制' },
             { label: 'ABAC', sublabel: 'Attribute-Based Access', tech: '基于属性访问控制' },
           ]
         },
-        { id: 'access-3', label: '加密协议', sublabel: '可搜索加密/属性加密', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#1ae6bb', type: 'access',
+        { id: 'access-3', label: '加密协议', sublabel: '可搜索加密/属性加密', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#00d4aa', type: 'access',
           children: [
             { label: '可搜索加密', sublabel: 'Searchable Encryption', tech: '密文搜索技术' },
             { label: '属性加密', sublabel: 'Attribute-Based Encryption', tech: '基于属性加密' },
             { label: '对称加密', sublabel: 'Symmetric Encryption', tech: '对称密钥加密' }
           ]
         },
-        { id: 'access-4', label: '上下文感知', sublabel: '态势/时空', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#33f5cc', type: 'access',
+        { id: 'access-4', label: '上下文感知', sublabel: '态势/时空', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#00d4aa', type: 'access',
           children: [
             { label: '时间因素', sublabel: 'Temporal Context', tech: '时间窗口控制' },
             { label: '位置因素', sublabel: 'Location Context', tech: '地理位置限制' },
             { label: '态势因素', sublabel: 'Situation Context', tech: '安全态势感知' }
           ]
         },
-        { id: 'access-5', label: '端侧执行', sublabel: 'TEE/合约授权', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#33f5cc', type: 'access',
+        { id: 'access-5', label: '端侧执行', sublabel: 'TEE/合约授权', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#00d4aa', type: 'access',
           children: [
             { label: '可信执行环境', sublabel: 'Trusted Execution Environment', tech: 'TEE隔离执行' },
             { label: '合约授权', sublabel: 'Contract Authorization', tech: '智能合约授权' },
             { label: 'Baker映射', sublabel: 'Baker Map', tech: 'Baker混沌映射' }
           ]
         },
-        { id: 'access-6', label: '云侧执行', sublabel: 'API网关/任务锚点', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#4dffdd', type: 'access',
+        { id: 'access-6', label: '云侧执行', sublabel: 'API网关/任务锚点', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#00d4aa', type: 'access',
           children: [
             { label: 'API网关', sublabel: 'API Gateway', tech: 'API鉴权网关' },
             { label: '任务锚点', sublabel: 'Task Anchor', tech: '任务锚点机制' },
             { label: '激活值偏移', sublabel: 'Activation Offset', tech: '激活值偏移保护' }
           ]
         },
-        { id: 'access-7', label: '审计合规', sublabel: '回放/认证数据结构', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#4dffdd', type: 'access',
+        { id: 'access-7', label: '审计合规', sublabel: '回放/认证数据结构', category: '细粒度访问控制', x: 0, y: 0, vx: 0, vy: 0, color: '#00d4aa', type: 'access',
           children: [
             { label: '行为回放', sublabel: 'Behavior Replay', tech: '操作回放分析' },
             { label: '认证数据结构', sublabel: 'Authenticated Data Structure', tech: 'ADS数据结构' },
@@ -293,42 +293,42 @@ export default {
             { label: 'IPFIX', sublabel: 'IP Flow Information', tech: 'IP流信息导出' }
           ]
         },
-        { id: 'ddos-2', label: '特征工程', sublabel: '熵/突发', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffb133', type: 'ddos',
+        { id: 'ddos-2', label: '特征工程', sublabel: '熵/突发', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ff9d00', type: 'ddos',
           children: [
             { label: '熵值分析', sublabel: 'Entropy Analysis', tech: '流量熵值计算' },
             { label: '突发检测', sublabel: 'Burst Detection', tech: '流量突发识别' },
             { label: '统计特征', sublabel: 'Statistical Features', tech: '多维统计特征' }
           ]
         },
-        { id: 'ddos-3', label: '检测模型', sublabel: 'LSTM', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffb133', type: 'ddos',
+        { id: 'ddos-3', label: '检测模型', sublabel: 'LSTM', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ff9d00', type: 'ddos',
           children: [
             { label: 'LSTM', sublabel: 'Long Short-Term Memory', tech: '长短期记忆网络' },
             { label: 'Transformer', sublabel: 'Attention Mechanism', tech: '注意力机制模型' },
             { label: 'Random Forest', sublabel: 'Ensemble Learning', tech: '随机森林集成' }
           ]
         },
-        { id: 'ddos-4', label: '攻击溯源', sublabel: 'IP画像', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffc466', type: 'ddos',
+        { id: 'ddos-4', label: '攻击溯源', sublabel: 'IP画像', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ff9d00', type: 'ddos',
           children: [
             { label: 'IP画像', sublabel: 'IP Profiling', tech: 'IP行为画像' },
             { label: '路径追踪', sublabel: 'Path Tracing', tech: '攻击路径追踪' },
             { label: '归因分析', sublabel: 'Attribution Analysis', tech: '攻击归因' }
           ]
         },
-        { id: 'ddos-5', label: '自动处置', sublabel: 'ACL/清洗', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffc466', type: 'ddos',
+        { id: 'ddos-5', label: '自动处置', sublabel: 'ACL/清洗', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ff9d00', type: 'ddos',
           children: [
             { label: 'ACL', sublabel: 'Access Control List', tech: '访问控制列表' },
             { label: '流量清洗', sublabel: 'Traffic Scrubbing', tech: '恶意流量过滤' },
             { label: '黑洞路由', sublabel: 'Blackhole Routing', tech: '黑洞路由丢弃' }
           ]
         },
-        { id: 'ddos-6', label: '可视化', sublabel: '看板/告警', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffd799', type: 'ddos',
+        { id: 'ddos-6', label: '可视化', sublabel: '看板/告警', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ff9d00', type: 'ddos',
           children: [
             { label: 'Grafana', sublabel: 'Metrics Dashboard', tech: '指标可视化看板' },
             { label: 'ELK', sublabel: 'Elasticsearch Kibana', tech: '日志分析展示' },
             { label: 'AlertManager', sublabel: 'Alert Routing', tech: '告警路由管理' }
           ]
         },
-        { id: 'ddos-7', label: '自学习', sublabel: '自适应', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ffd799', type: 'ddos',
+        { id: 'ddos-7', label: '自学习', sublabel: '自适应', category: 'DDoS检测', x: 0, y: 0, vx: 0, vy: 0, color: '#ff9d00', type: 'ddos',
           children: [
             { label: '在线学习', sublabel: 'Online Learning', tech: '在线模型更新' },
             { label: '反馈优化', sublabel: 'Feedback Loop', tech: '反馈闭环优化' },
@@ -337,33 +337,38 @@ export default {
         }
       ]
       
-      // 按类别分区初始化位置，避免节点聚集
-      const centerX = width / 2
+      // 按类别分区初始化位置:设备左边,访问控制中间,DDoS右边
       const centerY = height / 2
-      const radius = Math.min(width, height) / 3
+      const leftX = width * 0.0
+      const centerX = width * 0.5
+      const rightX = width * 0.8
+      const verticalRadius = height * 0.3
       
       nodes.forEach((node, index) => {
-        let angle, distance
+        let baseX, baseY
         
         if (node.type === 'device') {
           // 设备节点放在左侧区域
           const deviceIndex = index % 8
-          angle = -Math.PI / 2 + (deviceIndex / 8) * Math.PI
-          distance = radius + (Math.random() - 0.5) * 50
+          const angle = -Math.PI / 2 + (deviceIndex / 8) * Math.PI
+          baseX = leftX
+          baseY = centerY + Math.sin(angle) * verticalRadius
         } else if (node.type === 'access') {
-          // 访问控制节点放在右上区域
+          // 访问控制节点放在中间区域
           const accessIndex = (index - 8) % 8
-          angle = Math.PI / 6 + (accessIndex / 8) * (2 * Math.PI / 3)
-          distance = radius + (Math.random() - 0.5) * 50
+          const angle = -Math.PI / 2 + (accessIndex / 8) * Math.PI
+          baseX = centerX
+          baseY = centerY + Math.sin(angle) * verticalRadius
         } else {
-          // DDoS节点放在右下区域
+          // DDoS节点放在右侧区域
           const ddosIndex = (index - 16) % 8
-          angle = Math.PI / 2 + Math.PI / 6 + (ddosIndex / 8) * (2 * Math.PI / 3)
-          distance = radius + (Math.random() - 0.5) * 50
+          const angle = -Math.PI / 2 + (ddosIndex / 8) * Math.PI
+          baseX = rightX
+          baseY = centerY + Math.sin(angle) * verticalRadius
         }
         
-        node.x = centerX + Math.cos(angle) * distance
-        node.y = centerY + Math.sin(angle) * distance
+        node.x = baseX + (Math.random() - 0.5) * 40
+        node.y = baseY + (Math.random() - 0.5) * 40
         node.vx = (Math.random() - 0.5) * 0.5
         node.vy = (Math.random() - 0.5) * 0.5
       })
@@ -419,7 +424,7 @@ export default {
     const updatePhysics = () => {
       const centerX = canvas.value.width / 2
       const centerY = canvas.value.height / 2
-      const damping = 0.8
+      const damping = 0.9
       
       // 应用力
       nodes.forEach(node => {
@@ -430,12 +435,12 @@ export default {
           return
         }
         
-        // 重力 - 吸引到中心
-        const dx = centerX - node.x
-        const dy = centerY - node.y
-        const distToCenter = Math.sqrt(dx * dx + dy * dy)
-        node.vx += (dx / distToCenter) * 0.01
-        node.vy += (dy / distToCenter) * 0.01
+        // 重力 - 吸引到中心（已禁用）
+        // const dx = centerX - node.x
+        // const dy = centerY - node.y
+        // const distToCenter = Math.sqrt(dx * dx + dy * dy)
+        // node.vx += (dx / distToCenter) * 0.0
+        // node.vy += (dy / distToCenter) * 0.0
         
         // 节点间排斥力
         nodes.forEach(other => {
@@ -443,9 +448,16 @@ export default {
             const dx = node.x - other.x
             const dy = node.y - other.y
             const dist = Math.sqrt(dx * dx + dy * dy) || 1
-            const force = 5000 / (dist * dist)
+            const force = 8000 / (dist * dist)
             node.vx += (dx / dist) * force
             node.vy += (dy / dist) * force
+            
+            // 同类型节点之间的吸引力
+            if (node.type === other.type) {
+              const attractionForce = (dist - 180) * 0.0005
+              node.vx -= (dx / dist) * attractionForce
+              node.vy -= (dy / dist) * attractionForce
+            }
           }
         })
       })
@@ -464,7 +476,7 @@ export default {
         const dx = target.x - source.x
         const dy = target.y - source.y
         const dist = Math.sqrt(dx * dx + dy * dy) || 1
-        const force = (dist - 200) * 0.01 * link.strength
+        const force = (dist - 200) * 0.001 * link.strength
         
         source.vx += (dx / dist) * force
         source.vy += (dy / dist) * force
@@ -581,12 +593,6 @@ export default {
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText(node.label, node.x, node.y - radius - 12)
-        
-        if (isHovered && node.sublabel) {
-          ctx.fillStyle = '#80d6ff'
-          ctx.font = '12px Consolas'
-          ctx.fillText(node.sublabel, node.x, node.y - radius - 26)
-        }
       })
       
       // 绘制子节点
@@ -594,20 +600,23 @@ export default {
         childNodes.forEach((child, index) => {
           const radius = 12
           
+          // 使用父节点颜色的浅色版本
+          const lightColor = hoveredNode.value.color + 'aa'  // 添加透明度使其更浅
+          
           // 外发光
           ctx.shadowBlur = 15
-          ctx.shadowColor = hoveredNode.value.color
+          ctx.shadowColor = lightColor
           
           // 子节点外圈
           ctx.beginPath()
           ctx.arc(child.x, child.y, radius + 2, 0, Math.PI * 2)
-          ctx.fillStyle = hoveredNode.value.color + '30'
+          ctx.fillStyle = lightColor + '40'
           ctx.fill()
           
           // 子节点主体
           const gradient = ctx.createRadialGradient(child.x, child.y, 0, child.x, child.y, radius)
-          gradient.addColorStop(0, hoveredNode.value.color + 'dd')
-          gradient.addColorStop(1, hoveredNode.value.color + '99')
+          gradient.addColorStop(0, lightColor)
+          gradient.addColorStop(1, hoveredNode.value.color + '60')
           
           ctx.beginPath()
           ctx.arc(child.x, child.y, radius, 0, Math.PI * 2)
