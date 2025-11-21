@@ -10,28 +10,22 @@ const props = defineProps({
 
 const metricsList = computed(() => [
   {
-    key: 'deviceCount',
-    label: '接入设备数',
-    unit: '台',
-    gradient: 'linear-gradient(135deg, #3d8bff, #1cb5e0)',
+    key: 'congestionIndex',
+    label: '实时拥堵指数',
+    unit: '',
+    gradient: 'linear-gradient(135deg, #ff7eb3, #ff758c)',
   },
   {
-    key: 'modalTypes',
-    label: '模态类型',
-    unit: '类',
-    gradient: 'linear-gradient(135deg, #4facfe, #00f2fe)',
+    key: 'avgSpeed',
+    label: '路口平均车速',
+    unit: 'km/h',
+    gradient: 'linear-gradient(135deg, #43cea2, #185a9d)',
   },
   {
-    key: 'securityEvents',
-    label: '安全防护次数',
-    unit: '次',
-    gradient: 'linear-gradient(135deg, #fa709a, #fee140)',
-  },
-  {
-    key: 'dispatchTasks',
-    label: '调度任务',
-    unit: '项',
-    gradient: 'linear-gradient(135deg, #84fab0, #8fd3f4)',
+    key: 'queueLength',
+    label: '排队长度',
+    unit: 'm',
+    gradient: 'linear-gradient(135deg, #f7971e, #ffd200)',
   },
 ])
 </script>

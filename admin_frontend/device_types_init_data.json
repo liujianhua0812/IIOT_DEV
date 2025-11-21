@@ -268,6 +268,43 @@
         "required": false
       }
     ]
+  },
+  {
+    "name": "红绿灯",
+    "code": "traffic_light",
+    "description": "交通信号灯，用于控制路口交通流量",
+    "parameters": [
+      {
+        "name": "红绿灯状态",
+        "key": "traffic_light_status",
+        "type": "string",
+        "required": true
+      },
+      {
+        "name": "型号",
+        "key": "model",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "IP地址",
+        "key": "ip_address",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "安装位置",
+        "key": "installation_location",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "方向",
+        "key": "direction",
+        "type": "string",
+        "required": false
+      }
+    ]
   }
 ]
 

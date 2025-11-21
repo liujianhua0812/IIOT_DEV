@@ -1,13 +1,22 @@
 import { createApp } from 'vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { TooltipComponent, GeoComponent, TitleComponent } from 'echarts/components'
-import { EffectScatterChart } from 'echarts/charts'
+import { TooltipComponent, GeoComponent, TitleComponent, GridComponent, LegendComponent } from 'echarts/components'
+import { EffectScatterChart, LineChart } from 'echarts/charts'
 import App from './App.vue'
 import router from './router'
 import './style.css'
 
-use([CanvasRenderer, TooltipComponent, GeoComponent, TitleComponent, EffectScatterChart])
+use([
+  CanvasRenderer,
+  TooltipComponent,
+  GeoComponent,
+  TitleComponent,
+  GridComponent,
+  LegendComponent,
+  EffectScatterChart,
+  LineChart
+])
 
 const app = createApp(App)
 
