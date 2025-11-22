@@ -53,6 +53,16 @@ const selectedLaneLabel = computed(() => {
   const [directionKey, movementKey] = selectedLane.value.split('-')
   return `${directionLabelMap[directionKey] || ''}${movementLabelMap[movementKey] || ''}`
 })
+// 各方向排队数据
+const queueData = ref({
+  north: 85,
+  east: 120,
+  south: 95,
+  west: 110
+})
+const queueChartOption = ref({})
+const queueUpdateTime = ref(new Date().toLocaleTimeString())
+let queueUpdateInterval = null
 const currentCameraInfo = ref(null)
 const currentVideoStream = ref(null)
 const videoDialogVisible = ref(false)
@@ -190,6 +200,130 @@ watch(selectedLane, () => {
   updateTrafficFlowChart()
 })
 
+// 生成模拟排队数据
+const generateMockQueueData = () => {
+  const baseQueueMap = {
+    north: 85,
+    east: 120,
+    south: 95,
+    west: 110
+  }
+  
+  const updatedData = {}
+  directionOptions.forEach(direction => {
+    const base = baseQueueMap[direction.key] || 100
+    const variation = (Math.random() - 0.5) * 30 // ±15米的随机变化
+    updatedData[direction.key] = Math.max(0, Math.round(base + variation))
+  })
+  
+  return updatedData
+}
+
+// 更新排队数据图表
+const updateQueueChart = () => {
+  const data = queueData.value
+  const directions = directionOptions.map(d => d.label)
+  const values = directionOptions.map(d => data[d.key] || 0)
+  
+  // 根据排队长度设置颜色（绿色：低，黄色：中，红色：高）
+  const getColor = (value) => {
+    if (value < 80) return '#67C23A' // 绿色
+    if (value < 120) return '#E6A23C' // 黄色
+    return '#F56C6C' // 红色
+  }
+  
+  queueChartOption.value = {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      backgroundColor: 'rgba(15, 28, 46, 0.9)',
+      borderWidth: 0,
+      textStyle: { color: '#d6ecff' },
+      formatter: (params) => {
+        const param = params[0]
+        return `${param.name}<br/>${param.seriesName}: ${param.value} 米`
+      }
+    },
+    grid: {
+      left: '8%',
+      right: '8%',
+      top: '12%',
+      bottom: '12%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: directions,
+      axisLine: { lineStyle: { color: '#486d91' } },
+      axisLabel: { 
+        color: '#9cc3ff',
+        fontSize: 14
+      }
+    },
+    yAxis: {
+      type: 'value',
+      name: '排队长度 (米)',
+      nameTextStyle: { color: '#9cc3ff' },
+      axisLine: { lineStyle: { color: '#486d91' } },
+      splitLine: { lineStyle: { color: 'rgba(72, 109, 145, 0.3)' } },
+      axisLabel: { color: '#9cc3ff' }
+    },
+    series: [
+      {
+        name: '排队长度',
+        type: 'bar',
+        data: values.map((value, index) => ({
+          value,
+          itemStyle: {
+            color: {
+              type: 'linear',
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: getColor(value) },
+                { offset: 1, color: getColor(value) + '80' } // 添加透明度
+              ]
+            },
+            borderRadius: [8, 8, 0, 0]
+          }
+        })),
+        barWidth: '50%',
+        label: {
+          show: true,
+          position: 'top',
+          color: '#d6ecff',
+          fontSize: 14,
+          fontWeight: 'bold',
+          formatter: '{c} 米'
+        }
+      }
+    ]
+  }
+}
+
+// 启动排队数据更新
+const startQueueDataUpdate = () => {
+  if (queueUpdateInterval) {
+    clearInterval(queueUpdateInterval)
+  }
+  // 每3秒更新一次排队数据
+  queueUpdateInterval = setInterval(() => {
+    queueData.value = generateMockQueueData()
+    queueUpdateTime.value = new Date().toLocaleTimeString()
+    updateQueueChart()
+  }, 3000)
+}
+
+// 停止排队数据更新
+const stopQueueDataUpdate = () => {
+  if (queueUpdateInterval) {
+    clearInterval(queueUpdateInterval)
+    queueUpdateInterval = null
+  }
+}
+
 const loadData = async () => {
   loading.value = true
   errorMessage.value = ''
@@ -290,10 +424,14 @@ onMounted(async () => {
   // 启动红绿灯状态轮询
   startTrafficLightPolling()
   updateTrafficFlowChart()
+  // 初始化排队数据图表
+  updateQueueChart()
+  startQueueDataUpdate()
 })
 
 onUnmounted(() => {
   stopTrafficLightPolling()
+  stopQueueDataUpdate()
   if (map) {
     map.destroy()
   }
@@ -1538,6 +1676,28 @@ const handleVideoLoadedData = () => {
       </div>
     </section>
 
+    <!-- 各方向实时排队数据可视化 -->
+    <section class="queue-data-panel">
+      <header class="panel-header">
+        <div>
+          <h2>各方向实时排队数据</h2>
+          <p>实时监控各方向车辆排队长度（单位：米）</p>
+        </div>
+        <div class="panel-meta">
+          <span class="update-time">更新时间：{{ queueUpdateTime }}</span>
+        </div>
+      </header>
+      <div class="queue-chart-container">
+        <VChart
+          v-if="queueChartOption.series"
+          class="queue-chart"
+          :option="queueChartOption"
+          autoresize
+        />
+        <div v-else class="chart-placeholder">加载排队数据...</div>
+      </div>
+    </section>
+
     <!-- 设备详情和视频播放对话框 -->
     <div v-if="videoDialogVisible" class="video-dialog-overlay" @click="handleCloseVideo">
       <div class="video-dialog" @click.stop>
@@ -2031,6 +2191,38 @@ const handleVideoLoadedData = () => {
   align-items: center;
   justify-content: center;
   color: rgba(214, 236, 255, 0.6);
+}
+
+/* 各方向实时排队数据面板样式 */
+.queue-data-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 32px 36px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(10, 32, 52, 0.92), rgba(6, 20, 34, 0.95));
+  border: 1px solid rgba(88, 178, 255, 0.1);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+}
+
+.queue-chart-container {
+  width: 100%;
+  min-height: 400px;
+  background: rgba(7, 20, 34, 0.95);
+  border-radius: 22px;
+  border: 1px solid rgba(88, 178, 255, 0.08);
+  padding: 20px;
+  display: flex;
+}
+
+.queue-chart {
+  width: 100%;
+  height: 400px;
+}
+
+.update-time {
+  font-size: 14px;
+  color: rgba(214, 236, 255, 0.7);
 }
 
 /* 视频对话框样式 */

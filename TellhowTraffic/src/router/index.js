@@ -36,6 +36,31 @@ const routes = [
     name: 'scheduling',
     component: () => import('../views/SchedulingView.vue'),
   },
+  {
+    path: '/signal-controller',
+    name: 'signal-controller',
+    redirect: { name: 'signal-controller-overview' },
+  },
+  {
+    path: '/signal-controller/overview',
+    name: 'signal-controller-overview',
+    component: () => import('../views/signal-controller/IntersectionOverviewView.vue'),
+  },
+  {
+    path: '/signal-controller/strategy',
+    name: 'signal-controller-strategy',
+    component: () => import('../views/signal-controller/TrafficStrategyView.vue'),
+  },
+  {
+    path: '/signal-controller/schedule',
+    name: 'signal-controller-schedule',
+    component: () => import('../views/signal-controller/TimeScheduleView.vue'),
+  },
+  {
+    path: '/signal-controller/monitoring',
+    name: 'signal-controller-monitoring',
+    component: () => import('../views/signal-controller/RealTimeMonitoringView.vue'),
+  },
 ]
 
 const router = createRouter({

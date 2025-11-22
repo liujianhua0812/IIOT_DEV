@@ -9,6 +9,8 @@ const { user, isAuthenticated, logout } = useAuth()
 
 const showUserMenu = ref(false)
 const menuRef = ref(null)
+const showSignalControllerMenu = ref(false)
+const signalControllerMenuRef = ref(null)
 
 const adminBaseURL = import.meta.env.VITE_ADMIN_BASE_URL || 'http://localhost:10062'
 
@@ -17,16 +19,42 @@ const menuItems = [
   { label: '模态互联', route: { name: 'modal-connectivity' } },
   { label: '内生安全', route: { name: 'security' } },
   { label: '融合调度', route: { name: 'scheduling' } },
+  { 
+    label: '信号机管理', 
+    hasSubmenu: true,
+    route: { name: 'signal-controller-overview' },
+    submenu: [
+      { label: '路口概览 & 拓扑配置', route: { name: 'signal-controller-overview' } },
+      { label: '流量驱动控制策略', route: { name: 'signal-controller-strategy' } },
+      { label: '时间计划', route: { name: 'signal-controller-schedule' } },
+      { label: '实时监控 & 手动干预', route: { name: 'signal-controller-monitoring' } },
+    ]
+  },
   { label: '后台管理', external: adminBaseURL },
 ]
 
 const activeName = computed(() => route.name)
 
 const navigateTo = (item) => {
-  if (item.external) {
+  if (item.hasSubmenu) {
+    // 如果有子菜单，切换下拉菜单显示状态
+    showSignalControllerMenu.value = !showSignalControllerMenu.value
+    // 如果点击主菜单项，也导航到默认页面
+    if (item.route) {
+      router.push(item.route)
+    }
+  } else if (item.external) {
     window.open(item.external, '_blank', 'noopener')
   } else if (item.route) {
     router.push(item.route)
+    showSignalControllerMenu.value = false
+  }
+}
+
+const navigateToSubmenu = (subItem) => {
+  if (subItem.route) {
+    router.push(subItem.route)
+    showSignalControllerMenu.value = false
   }
 }
 
@@ -37,6 +65,11 @@ const isActive = (item) => {
 
   if (item.external) {
     return false
+  }
+
+  // 信号机管理相关的所有页面都高亮
+  if (item.route.name === 'signal-controller-overview') {
+    return activeName.value.toString().startsWith('signal-controller-')
   }
 
   return activeName.value === item.route.name
@@ -60,6 +93,9 @@ const handleLogout = () => {
 const handleClickOutside = (event) => {
   if (menuRef.value && !menuRef.value.contains(event.target)) {
     showUserMenu.value = false
+  }
+  if (signalControllerMenuRef.value && !signalControllerMenuRef.value.contains(event.target)) {
+    showSignalControllerMenu.value = false
   }
 }
 
@@ -89,9 +125,38 @@ const avatarText = computed(() => {
     </div>
 
     <nav class="menu">
-      <button v-for="item in menuItems" :key="item.label" :class="['menu-item', { active: isActive(item) }]" @click="navigateTo(item)">
-        {{ item.label }}
-      </button>
+      <template v-for="item in menuItems" :key="item.label">
+        <div 
+          v-if="item.hasSubmenu" 
+          class="menu-item-wrapper"
+          ref="signalControllerMenuRef"
+        >
+          <button 
+            :class="['menu-item', { active: isActive(item) }]" 
+            @click="navigateTo(item)"
+          >
+            {{ item.label }}
+            <span class="dropdown-arrow" :class="{ open: showSignalControllerMenu }">▼</span>
+          </button>
+          <div v-if="showSignalControllerMenu" class="submenu">
+            <button
+              v-for="subItem in item.submenu"
+              :key="subItem.label"
+              :class="['submenu-item', { active: activeName === subItem.route.name }]"
+              @click="navigateToSubmenu(subItem)"
+            >
+              {{ subItem.label }}
+            </button>
+          </div>
+        </div>
+        <button 
+          v-else
+          :class="['menu-item', { active: isActive(item) }]" 
+          @click="navigateTo(item)"
+        >
+          {{ item.label }}
+        </button>
+      </template>
     </nav>
 
     <div class="actions">
@@ -196,6 +261,62 @@ const avatarText = computed(() => {
   background: linear-gradient(135deg, #49c5ff, #36a3f7);
   color: #0b2338;
   box-shadow: 0 8px 18px rgba(73, 197, 255, 0.25);
+}
+
+.menu-item-wrapper {
+  position: relative;
+}
+
+.dropdown-arrow {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+  transition: transform 0.3s ease;
+  vertical-align: middle;
+}
+
+.dropdown-arrow.open {
+  transform: rotate(180deg);
+}
+
+.submenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 220px;
+  background: linear-gradient(135deg, rgba(11, 38, 66, 0.95), rgba(6, 25, 44, 0.98));
+  border: 1px solid rgba(88, 178, 255, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  z-index: 1000;
+  padding: 8px 0;
+}
+
+.submenu-item {
+  width: 100%;
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  color: #d6ecff;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  letter-spacing: 0.5px;
+}
+
+.submenu-item:hover {
+  background: rgba(73, 197, 255, 0.15);
+  color: #49c5ff;
+}
+
+.submenu-item.active {
+  background: rgba(73, 197, 255, 0.25);
+  color: #49c5ff;
+  font-weight: 600;
 }
 
 .actions .login-btn {
