@@ -13,9 +13,12 @@ export default defineConfig({
   preview: {
     port: 10065,
     host: '0.0.0.0',
+    open: false, // 禁用自动打开浏览器
   },
   server: {
     port: 10065,
     host: '0.0.0.0',
+    open: false, // 禁用自动打开浏览器，让终端链接在系统默认浏览器中打开
+    strictPort: false,
   },
 })

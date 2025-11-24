@@ -1,0 +1,33 @@
+# 数据库备份报告
+
+## 备份信息
+- 备份文件: iiot_platform_20251122_103920.backup
+- 备份时间: 2025-11-22 10:39:20
+- 文件大小: 232K
+- 备份格式: PostgreSQL自定义格式 (.backup)
+- 数据库名称: iiot_platform
+- 数据库版本: PostgreSQL 15.14
+- 备份工具版本: pg_dump 16.9
+
+## 连接信息
+- 数据库主机: 127.0.0.1 (本地)
+- 数据库端口: 5432
+- 数据库用户: admin
+- 数据库名称: iiot_platform
+
+## 备份内容
+- TOC条目数: 725
+- 包含对象: 表、序列、函数、索引等
+- 压缩方式: gzip
+
+## 恢复方法
+```bash
+# 恢复到数据库
+pg_restore -h 127.0.0.1 -p 5432 -U admin -d iiot_platform -c -v iiot_platform_20251122_103920.backup
+
+# 或者查看备份内容
+pg_restore -l iiot_platform_20251122_103920.backup
+```
+
+## 备份位置
+/home/liujianhua/IIOT_VERSION/weekend_code/backups/

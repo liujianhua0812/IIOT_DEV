@@ -375,9 +375,12 @@ const updateTrafficLightMarkers = async () => {
         const deviceCode = marker._trafficLightDevice.code
         const newStatus = statusMap.get(deviceCode)
         
-        if (newStatus && marker.extData && marker.extData.status !== newStatus) {
+        if (newStatus) {
+          // 标准化状态值（支持数字和字符串）
+          const normalizedStatus = normalizeTrafficLightStatus(newStatus)
+          if (marker.extData && marker.extData.status !== normalizedStatus) {
           // 状态已改变，更新图标
-          const iconUrl = createTrafficLightIcon(newStatus)
+            const iconUrl = createTrafficLightIcon(normalizedStatus)
           const AMap = window.AMap
           if (AMap) {
             const newIcon = new AMap.Icon({
@@ -387,8 +390,9 @@ const updateTrafficLightMarkers = async () => {
               imageOffset: new AMap.Pixel(0, 0)
             })
             marker.setIcon(newIcon)
-            marker.extData.status = newStatus
-            marker._trafficLightDevice.traffic_light_status = newStatus
+              marker.extData.status = normalizedStatus
+              marker._trafficLightDevice.traffic_light_status = normalizedStatus
+            }
           }
         }
       }
@@ -582,6 +586,9 @@ const loadAllDevices = async () => {
   if (!map) return
   
   try {
+    // 清除所有旧标记，避免重复添加
+    clearMarkers()
+    
     const response = await fetchMapDevices()
     const data = response.data
     
@@ -896,7 +903,164 @@ const updateTopologyLines = ({ hub = null, devices = [], connections = [] }) => 
   }
 }
 
-const addCameraMarker = (camera, intersection) => {
+// SVG 内容缓存
+const svgContentCache = new Map()
+
+// 异步获取 SVG 文件内容
+const fetchSvgContent = async (svgUrl) => {
+  if (svgContentCache.has(svgUrl)) {
+    return svgContentCache.get(svgUrl)
+  }
+  
+  try {
+    const response = await fetch(svgUrl)
+    const svgText = await response.text()
+    svgContentCache.set(svgUrl, svgText)
+    return svgText
+  } catch (error) {
+    console.error('获取 SVG 内容失败:', error)
+    return null
+  }
+}
+
+// 创建应用了旋转和翻转的摄像头图标
+const createCameraIconWithTransform = async (isCheckpoint, rotationAngle = 0, flipHorizontal = false, flipVertical = false) => {
+  console.log('createCameraIconWithTransform 调用:', {
+    isCheckpoint,
+    rotationAngle,
+    flipHorizontal,
+    flipVertical,
+    rotationAngleType: typeof rotationAngle
+  })
+  
+  // 获取原始 SVG URL
+  const originalSvgPath = isCheckpoint ? SphericalCameraIcon : MonitorCameraIcon
+  
+  // 获取 SVG 文件的实际内容
+  let svgContent = await fetchSvgContent(originalSvgPath)
+  if (!svgContent) {
+    console.warn('无法获取 SVG 内容，使用原始 URL')
+    return originalSvgPath
+  }
+  
+  // 构建 transform 字符串
+  const transforms = []
+  
+  // SVG 中心点是 512, 512 (viewBox 是 0 0 1024 1024)
+  const centerX = 512
+  const centerY = 512
+  
+  // SVG 变换是从右到左应用的
+  // 要围绕中心点翻转，需要：1. 移动到原点 2. 翻转 3. 移回中心
+  // 在数组中顺序（从左到右）：translate(-cx,-cy) -> scale -> translate(cx,cy)
+  // SVG 实际应用（从右到左）：translate(cx,cy) <- scale <- translate(-cx,-cy) ✓
+  
+  // 正确的顺序：先翻转，再旋转（视觉上）
+  // 因为 SVG 从右到左应用，所以数组顺序应该是：旋转 -> 翻转
+  // 这样 SVG 实际应用顺序（从右到左）：翻转 <- 旋转（先旋转，再翻转）
+  
+  // 但我们需要：先翻转，再旋转
+  // 所以数组顺序应该是：旋转 -> 翻转（数组末尾放旋转）
+  // 这样 SVG 从右到左应用时：先应用翻转，再应用旋转
+  
+  // SVG transform 从右到左应用
+  // 如果要先翻转再旋转（视觉上），实际应用顺序应该是：旋转 -> 翻转组
+  // 由于 SVG 从右到左，数组顺序应该是：翻转组 -> 旋转（数组末尾放旋转）
+  // 这样 SVG 应用顺序（从右到左）：旋转 <- 翻转组（先完成翻转组，再旋转）✓
+  
+  // 旋转围绕中心点（后添加到数组末尾，会在 SVG 中先应用）
+  if (rotationAngle !== 0 && rotationAngle !== null && rotationAngle !== undefined) {
+    transforms.push(`rotate(${rotationAngle} ${centerX} ${centerY})`)
+  }
+  
+  // 翻转围绕中心点（先添加到数组，会在 SVG 中后应用）
+  if (flipHorizontal || flipVertical) {
+    // 先平移到原点（将中心点移到0,0）
+    transforms.push(`translate(-${centerX}, -${centerY})`)
+    
+    // 然后翻转
+    if (flipHorizontal && flipVertical) {
+      transforms.push('scale(-1, -1)')
+    } else if (flipHorizontal) {
+      transforms.push('scaleX(-1)')
+    } else if (flipVertical) {
+      transforms.push('scaleY(-1)')
+    }
+    
+    // 最后平移回中心点
+    transforms.push(`translate(${centerX}, ${centerY})`)
+  }
+  
+  // 如果不需要变换，直接返回原始图标 URL
+  if (transforms.length === 0) {
+    return originalSvgPath
+  }
+  
+  // 创建包含 transform 的新 SVG
+  // 将 transform 属性应用到外层 <g> 标签中
+  // SVG transform 从右到左应用
+  // 当前数组顺序（从左到右）：[翻转组..., 旋转]
+  // SVG 应用顺序（从右到左）：旋转 <- 翻转组 = 先应用翻转组，再应用旋转
+  // 这意味着先完成翻转（translate(-512,-512) -> scaleX(-1) -> translate(512,512)），然后旋转
+  // 所以当前顺序是正确的
+  
+  const transformAttr = transforms.length > 0 ? ` transform="${transforms.join(' ')}"` : ''
+  
+  console.log('应用变换:', {
+    rotationAngle,
+    flipHorizontal,
+    flipVertical,
+    transforms: transforms,
+    transformAttr: transformAttr,
+    transformsArrayOrder: transforms.slice() // 保存当前数组顺序
+  })
+  
+  // 提取 SVG 内部内容（去掉外层的 <svg> 标签）
+  // 使用正则表达式匹配并移除 <svg> 开始标签和 </svg> 结束标签（支持多行）
+  let svgInnerContent = svgContent
+  // 移除开始标签（包括所有属性和换行符）
+  svgInnerContent = svgInnerContent.replace(/<svg[^>]*>\s*/i, '')
+  // 移除结束标签（包括前面的空白字符）
+  svgInnerContent = svgInnerContent.replace(/\s*<\/svg>\s*$/i, '')
+  svgInnerContent = svgInnerContent.trim()
+  
+  console.log('SVG 内容提取:', {
+    originalLength: svgContent.length,
+    innerLength: svgInnerContent.length,
+    innerPreview: svgInnerContent.substring(0, 150),
+    transformAttr: transformAttr
+  })
+  
+  // 创建新的 SVG，外层包裹 <g> 标签应用 transform
+  const transformedSvg = `<svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="1024" height="1024"><g${transformAttr}>${svgInnerContent}</g></svg>`
+  
+  console.log('生成的 SVG 预览:', {
+    svgLength: transformedSvg.length,
+    hasTransform: transformedSvg.includes('transform='),
+    transformPreview: transformedSvg.substring(0, 250),
+    transformAttrInSvg: transformedSvg.includes(transformAttr.substring(1)) // 去掉前导空格
+  })
+  
+  // 将 SVG 转换为 data URL
+  const svgBlob = new Blob([transformedSvg], { type: 'image/svg+xml' })
+  const url = URL.createObjectURL(svgBlob)
+  
+  return url
+}
+
+// 检查设备专用 SVG 是否存在
+const checkDeviceIconExists = async (deviceCode) => {
+  if (!deviceCode) return false
+  try {
+    const iconUrl = `http://localhost:10060/static/device-icons/${deviceCode}.svg`
+    const response = await fetch(iconUrl, { method: 'HEAD' })
+    return response.ok
+  } catch (error) {
+    return false
+  }
+}
+
+const addCameraMarker = async (camera, intersection) => {
   if (!map) return
   
   const AMap = window.AMap
@@ -909,22 +1073,64 @@ const addCameraMarker = (camera, intersection) => {
   const lat = camera.latitude || intersection?.latitude || 27.87076
   const lng = camera.longitude || intersection?.longitude || 112.927176
   
-  let icon
-  if (isCheckpoint) {
-    icon = new AMap.Icon({
-      size: new AMap.Size(48, 48),
-      image: SphericalCameraIcon,
-      imageSize: new AMap.Size(48, 48),
-      imageOffset: new AMap.Pixel(0, 0)
-    })
-  } else {
-    icon = new AMap.Icon({
-      size: new AMap.Size(48, 48),
-      image: MonitorCameraIcon,
-      imageSize: new AMap.Size(48, 48),
-      imageOffset: new AMap.Pixel(0, 0)
-    })
+  // 优先加载设备专用 SVG 文件
+  let iconUrl = null
+  const deviceCode = camera.code
+  
+  if (deviceCode) {
+    const hasCustomIcon = await checkDeviceIconExists(deviceCode)
+    if (hasCustomIcon) {
+      // 使用设备专用 SVG
+      iconUrl = `http://localhost:10060/static/device-icons/${deviceCode}.svg`
+      console.log('使用设备专用图标:', iconUrl)
+    }
   }
+  
+  // 如果没有设备专用图标，则根据参数动态生成
+  if (!iconUrl) {
+    // 从参数中读取图标显示设置
+    const parameters = camera.parameters || {}
+    console.log('读取摄像头参数:', {
+      cameraName: camera.name,
+      parameters: parameters,
+      icon_rotation_angle: parameters.icon_rotation_angle,
+      rotation_angle: parameters.rotation_angle
+    })
+    
+    // 读取旋转角度，支持多种格式
+    let rotationAngle = 0
+    if (parameters.icon_rotation_angle !== undefined && parameters.icon_rotation_angle !== null && parameters.icon_rotation_angle !== '') {
+      rotationAngle = Number(parameters.icon_rotation_angle) || 0
+    } else if (parameters.rotation_angle !== undefined && parameters.rotation_angle !== null && parameters.rotation_angle !== '') {
+      rotationAngle = Number(parameters.rotation_angle) || 0
+    }
+    
+    console.log('解析后的旋转角度:', rotationAngle, typeof rotationAngle)
+    const flipHorizontal = parameters.icon_flip_horizontal !== undefined 
+      ? (parameters.icon_flip_horizontal === 'true' || parameters.icon_flip_horizontal === true || parameters.icon_flip_horizontal === 1 || parameters.icon_flip_horizontal === '1')
+      : (parameters.flip_horizontal !== undefined ? (parameters.flip_horizontal === 'true' || parameters.flip_horizontal === true || parameters.flip_horizontal === 1 || parameters.flip_horizontal === '1') : false)
+    const flipVertical = parameters.icon_flip_vertical !== undefined
+      ? (parameters.icon_flip_vertical === 'true' || parameters.icon_flip_vertical === true || parameters.icon_flip_vertical === 1 || parameters.icon_flip_vertical === '1')
+      : (parameters.flip_vertical !== undefined ? (parameters.flip_vertical === 'true' || parameters.flip_vertical === true || parameters.flip_vertical === 1 || parameters.flip_vertical === '1') : false)
+    
+    // 创建应用了变换的图标
+    console.log('创建摄像头图标，参数:', {
+      cameraName: camera.name,
+      isCheckpoint,
+      rotationAngle,
+      flipHorizontal,
+      flipVertical,
+      parameters: camera.parameters
+    })
+    iconUrl = await createCameraIconWithTransform(isCheckpoint, rotationAngle, flipHorizontal, flipVertical)
+  }
+  
+  const icon = new AMap.Icon({
+      size: new AMap.Size(48, 48),
+    image: iconUrl,
+      imageSize: new AMap.Size(48, 48),
+      imageOffset: new AMap.Pixel(0, 0)
+    })
   
   const statusText = camera.status === 'online' ? '在线' : camera.status === 'offline' ? '离线' : camera.status === 'fault' ? '故障' : '未知'
   
@@ -1106,18 +1312,39 @@ const addGuidanceScreenMarker = (screen, intersection) => {
   markers.push(marker)
 }
 
+// 将状态值转换为标准字符串（支持数字和字符串）
+const normalizeTrafficLightStatus = (status) => {
+  if (!status) return 'red'  // 默认值
+  
+  // 转换为字符串并转为小写
+  const statusStr = String(status).toLowerCase().trim()
+  
+  // 支持数字值：1=red, 2=yellow, 3=green
+  if (statusStr === '1') return 'red'
+  if (statusStr === '2') return 'yellow'
+  if (statusStr === '3') return 'green'
+  
+  // 支持字符串值：red, yellow, amber, green
+  if (statusStr === 'red') return 'red'
+  if (statusStr === 'yellow' || statusStr === 'amber') return 'yellow'
+  if (statusStr === 'green') return 'green'
+  
+  // 如果都不匹配，返回默认值
+  return 'red'
+}
+
 // 根据红绿灯状态生成SVG图标
 const createTrafficLightIcon = (status) => {
-  const statusLower = (status || 'red').toLowerCase()
+  const normalizedStatus = normalizeTrafficLightStatus(status)
   let redOpacity = 0.1
   let yellowOpacity = 0.1
   let greenOpacity = 0.1
   
-  if (statusLower === 'red') {
+  if (normalizedStatus === 'red') {
     redOpacity = 1
-  } else if (statusLower === 'yellow' || statusLower === 'amber') {
+  } else if (normalizedStatus === 'yellow') {
     yellowOpacity = 1
-  } else if (statusLower === 'green') {
+  } else if (normalizedStatus === 'green') {
     greenOpacity = 1
   }
   
@@ -1157,8 +1384,8 @@ const addTrafficLightMarker = (light, intersection) => {
   const lat = light.latitude || intersection?.latitude || 27.871127
   const lng = light.longitude || intersection?.longitude || 112.927831
 
-  // 根据状态生成图标
-  const status = light.traffic_light_status || 'red'
+  // 根据状态生成图标（支持数字和字符串值）
+  const status = normalizeTrafficLightStatus(light.traffic_light_status)
   const iconUrl = createTrafficLightIcon(status)
 
   const icon = new AMap.Icon({
@@ -1180,12 +1407,14 @@ const addTrafficLightMarker = (light, intersection) => {
     }
   })
 
-  const statusText = {
+  // 获取状态文本（使用标准化后的状态）
+  const statusTextMap = {
     'red': '红色',
     'yellow': '黄色',
     'amber': '黄色',
     'green': '绿色'
-  }[status.toLowerCase()] || status
+  }
+  const statusText = statusTextMap[status] || '红色'
 
   const infoWindow = new AMap.InfoWindow({
     isCustom: true,
@@ -1196,7 +1425,8 @@ const addTrafficLightMarker = (light, intersection) => {
       fields: [
         { label: '设备编号', value: light.code || 'N/A' },
         { label: '红绿灯状态', value: statusText },
-        { label: 'IP 地址', value: light.ip_address || 'N/A' }
+        { label: 'IP 地址', value: light.ip_address || 'N/A' },
+        { label: '类型', value: light.type_name || light.parameters?.type || 'N/A' }
       ],
       location: {
         longitude: light.longitude || intersection?.longitude,
@@ -1383,7 +1613,22 @@ const loadCameraVideo = async (camera) => {
           networkState: videoPlayer.value.networkState,
           readyState: videoPlayer.value.readyState
         })
-        errorMessage.value = `视频播放失败: ${error.message || '不支持的视频格式'} (错误代码: ${error.code})`
+        
+        // 根据错误代码提供更友好的错误提示
+        let errorMsg = '视频播放失败'
+        if (error.code === 4) {
+          // MEDIA_ELEMENT_ERROR: Format error - 通常是文件不存在或格式不支持
+          errorMsg = '视频文件不存在或格式不支持，请检查文件路径'
+        } else if (error.code === 2) {
+          errorMsg = '网络错误，无法加载视频'
+        } else if (error.code === 3) {
+          errorMsg = '视频解码失败，可能是不支持的格式'
+        } else {
+          errorMsg = `视频播放失败: ${error.message || '未知错误'} (错误代码: ${error.code})`
+        }
+        errorMessage.value = errorMsg
+      } else {
+        errorMessage.value = '视频加载失败，请稍后重试'
       }
     }
     
@@ -1412,7 +1657,17 @@ const loadCameraVideo = async (camera) => {
   } catch (error) {
     console.error('加载视频流异常:', error)
     if (error.response?.status === 404) {
+      // 404可能是视频流不存在或视频文件不存在
+      const errorData = error.response?.data
+      if (errorData?.error) {
+        if (errorData.error.includes('视频文件不存在')) {
+          errorMessage.value = '视频文件不存在，请联系管理员上传视频文件'
+        } else {
       errorMessage.value = '该设备暂无视频流'
+        }
+      } else {
+        errorMessage.value = '该设备暂无视频流'
+      }
       currentVideoStream.value = null
     } else {
       errorMessage.value = '加载视频流失败: ' + (error.response?.data?.error || error.message)

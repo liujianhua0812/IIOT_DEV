@@ -8,8 +8,10 @@ source venv/bin/activate
 
 # 设置开发模式环境变量
 export FLASK_ENV=development
-export DB_HOST=166.111.80.127
-export DB_PORT=15432
+# 使用本地数据库（如果外部数据库不可用，会自动回退到本地）
+# 如果需要使用外部数据库，可以在启动前设置环境变量
+export DB_HOST=${DB_HOST:-192.168.34.14}
+export DB_PORT=${DB_PORT:-5432}
 
 echo "=========================================="
 echo "启动开发模式"

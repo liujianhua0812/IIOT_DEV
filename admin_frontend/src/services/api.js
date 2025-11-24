@@ -13,6 +13,7 @@ export const fetchDevices = (params = {}) => apiClient.get('/api/devices', { par
 export const fetchDevice = (deviceId) => apiClient.get(`/api/devices/${deviceId}`)
 export const createDevice = (data) => apiClient.post('/api/devices', data)
 export const updateDevice = (deviceId, data) => apiClient.put(`/api/devices/${deviceId}`, data)
+export const saveDeviceIcon = (deviceId, svgContent) => apiClient.post(`/api/devices/${deviceId}/icon`, { svg_content: svgContent }, { headers: { 'Content-Type': 'application/json' } })
 
 // 设备类型管理 API
 export const fetchDeviceTypes = () => apiClient.get('/api/device-types')

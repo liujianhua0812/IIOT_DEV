@@ -94,8 +94,15 @@ const handleClickOutside = (event) => {
   if (menuRef.value && !menuRef.value.contains(event.target)) {
     showUserMenu.value = false
   }
-  if (signalControllerMenuRef.value && !signalControllerMenuRef.value.contains(event.target)) {
+  // signalControllerMenuRef 在 v-for 中可能是数组，需要检查每个元素
+  if (signalControllerMenuRef.value) {
+    const refs = Array.isArray(signalControllerMenuRef.value) 
+      ? signalControllerMenuRef.value 
+      : [signalControllerMenuRef.value]
+    const isInside = refs.some(ref => ref && ref.contains && ref.contains(event.target))
+    if (!isInside) {
     showSignalControllerMenu.value = false
+    }
   }
 }
 

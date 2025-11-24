@@ -75,8 +75,9 @@ echo -e "${GREEN}正在启动后端服务...${NC}"
 cd backend
 source venv/bin/activate
 export FLASK_ENV=development
-export DB_HOST=166.111.80.127
-export DB_PORT=15432
+# 使用内网数据库地址（本地服务器无法通过公网地址访问）
+export DB_HOST=192.168.34.14
+export DB_PORT=5432
 nohup python run_dev.py > ../logs/backend.log 2>&1 &
 BACKEND_PID=$!
 cd ..

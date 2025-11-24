@@ -168,7 +168,9 @@ def ensure_tk_positions_table():
 
 
 def create_app() -> Flask:
-    app = Flask(__name__)
+    # 配置静态文件目录
+    static_folder = os.path.join(os.path.dirname(__file__), 'static')
+    app = Flask(__name__, static_folder=static_folder, static_url_path='/static')
     
     # Initialize SocketIO
     if MODE != "production":
@@ -673,13 +675,28 @@ def register_routes(app: Flask) -> None:
                 if not device_type:
                     return jsonify({"error": "指定的设备类型不存在"}), 400
             
+            # 确定应用ID：如果未指定且设备类型是红绿灯，自动关联到 TellhowTraffic 应用
+            application_id = data.get("application_id")
+            if not application_id and device_type and device_type.code == 'traffic_light':
+                # 查找 TellhowTraffic 应用
+                tellhowtraffic_app = db.query(Application).filter(
+                    (Application.english_name.ilike('%TellhowTraffic%')) | 
+                    (Application.name.ilike('%TellhowTraffic%')) |
+                    (Application.english_name.ilike('%Tellhow%Traffic%')) |
+                    (Application.name.ilike('%Tellhow%Traffic%')) |
+                    (Application.english_name.ilike('%Traffic%')) |
+                    (Application.name.ilike('%Traffic%'))
+                ).first()
+                if tellhowtraffic_app:
+                    application_id = tellhowtraffic_app.id
+            
             # 创建设备
             from datetime import datetime
             device = Device(
                 name=data["name"],
                 code=data["code"],
                 device_type_id=data.get("device_type_id"),
-                application_id=data.get("application_id"),
+                application_id=application_id,
                 position_x=data.get("position_x"),
                 position_y=data.get("position_y"),
                 serial_number=data.get("serial_number", ""),
@@ -796,8 +813,39 @@ def register_routes(app: Flask) -> None:
                 device.code = data["code"]
             if "device_type_id" in data:
                 device.device_type_id = data["device_type_id"]
+            
+            # 确定应用ID：如果未指定或为空，且设备类型是红绿灯，自动关联到 TellhowTraffic 应用
             if "application_id" in data:
-                device.application_id = data.get("application_id")
+                application_id = data.get("application_id")
+                # 如果应用ID为空或None，且设备类型是红绿灯，自动关联
+                if not application_id:
+                    device_type = db.query(DeviceType).filter(DeviceType.id == device.device_type_id).first()
+                    if device_type and device_type.code == 'traffic_light':
+                        tellhowtraffic_app = db.query(Application).filter(
+                            (Application.english_name.ilike('%TellhowTraffic%')) | 
+                            (Application.name.ilike('%TellhowTraffic%')) |
+                            (Application.english_name.ilike('%Tellhow%Traffic%')) |
+                            (Application.name.ilike('%Tellhow%Traffic%')) |
+                            (Application.english_name.ilike('%Traffic%')) |
+                            (Application.name.ilike('%Traffic%'))
+                        ).first()
+                        if tellhowtraffic_app:
+                            application_id = tellhowtraffic_app.id
+                device.application_id = application_id
+            elif not device.application_id and device.device_type_id:
+                # 如果更新中没有指定 application_id，但设备当前也没有 application_id，且设备类型是红绿灯，自动关联
+                device_type = db.query(DeviceType).filter(DeviceType.id == device.device_type_id).first()
+                if device_type and device_type.code == 'traffic_light':
+                    tellhowtraffic_app = db.query(Application).filter(
+                        (Application.english_name.ilike('%TellhowTraffic%')) | 
+                        (Application.name.ilike('%TellhowTraffic%')) |
+                        (Application.english_name.ilike('%Tellhow%Traffic%')) |
+                        (Application.name.ilike('%Tellhow%Traffic%')) |
+                        (Application.english_name.ilike('%Traffic%')) |
+                        (Application.name.ilike('%Traffic%'))
+                    ).first()
+                    if tellhowtraffic_app:
+                        device.application_id = tellhowtraffic_app.id
             if "position_x" in data:
                 device.position_x = data.get("position_x")
             if "position_y" in data:
@@ -849,39 +897,105 @@ def register_routes(app: Flask) -> None:
                 existing_params = {pv.param_key: pv for pv in existing_params_query}
                 
                 for param_key, param_value in data["parameters"].items():
-                    if param_key not in param_definitions:
-                        continue
-                    
-                    param_def = param_definitions[param_key]
-                    
-                    # 转换参数值
-                    try:
-                        if param_value is None:
-                            str_value = None
-                        elif param_def.param_type == 'boolean':
-                            str_value = 'true' if param_value else 'false'
-                        elif param_def.param_type == 'date':
-                            str_value = param_value if isinstance(param_value, str) else str(param_value) if param_value is not None else None
-                        elif param_def.param_type == 'number':
-                            str_value = None if (param_value is None or param_value == '') else str(param_value)
+                    # 处理设备类型定义中的参数
+                    if param_key in param_definitions:
+                        param_def = param_definitions[param_key]
+                        
+                        # 转换参数值
+                        try:
+                            if param_value is None:
+                                str_value = None
+                            elif param_def.param_type == 'boolean':
+                                str_value = 'true' if param_value else 'false'
+                            elif param_def.param_type == 'date':
+                                str_value = param_value if isinstance(param_value, str) else str(param_value) if param_value is not None else None
+                            elif param_def.param_type == 'number':
+                                str_value = None if (param_value is None or param_value == '') else str(param_value)
+                            else:
+                                str_value = str(param_value) if param_value is not None else None
+                        except Exception as e:
+                            return jsonify({"error": f"参数 {param_key} 值转换失败: {str(e)}"}), 400
+                        
+                        # 更新或创建参数值
+                        if param_key in existing_params:
+                            existing_params[param_key].param_value = str_value
+                            existing_params[param_key].updated_at = datetime.utcnow()
                         else:
-                            str_value = str(param_value) if param_value is not None else None
-                    except Exception as e:
-                        return jsonify({"error": f"参数 {param_key} 值转换失败: {str(e)}"}), 400
-                    
-                    # 更新或创建参数值
-                    if param_key in existing_params:
-                        existing_params[param_key].param_value = str_value
-                        existing_params[param_key].updated_at = datetime.utcnow()
+                            param_value_obj = DeviceParameterValue(
+                                device_id=device.id,
+                                parameter_id=param_def.id,
+                                param_key=param_key,
+                                param_value=str_value
+                            )
+                            db.add(param_value_obj)
+                            existing_params[param_key] = param_value_obj
                     else:
-                        param_value_obj = DeviceParameterValue(
-                            device_id=device.id,
-                            parameter_id=param_def.id,
-                            param_key=param_key,
-                            param_value=str_value
-                        )
-                        db.add(param_value_obj)
-                        existing_params[param_key] = param_value_obj
+                        # 处理自定义参数（如图标显示设置），这些参数不在设备类型定义中
+                        # 图标显示设置参数：icon_rotation_angle, icon_flip_horizontal, icon_flip_vertical
+                        custom_param_keys = ['icon_rotation_angle', 'icon_flip_horizontal', 'icon_flip_vertical', 
+                                           'rotation_angle', 'flip_horizontal', 'flip_vertical']
+                        
+                        if param_key in custom_param_keys:
+                            # 转换自定义参数值
+                            try:
+                                if param_value is None:
+                                    str_value = None
+                                elif param_key in ['icon_rotation_angle', 'rotation_angle']:
+                                    # 数字类型
+                                    str_value = None if (param_value is None or param_value == '') else str(param_value)
+                                elif param_key in ['icon_flip_horizontal', 'icon_flip_vertical', 'flip_horizontal', 'flip_vertical']:
+                                    # 布尔类型
+                                    str_value = 'true' if param_value else 'false'
+                                else:
+                                    str_value = str(param_value) if param_value is not None else None
+                            except Exception as e:
+                                return jsonify({"error": f"参数 {param_key} 值转换失败: {str(e)}"}), 400
+                            
+                            # 对于自定义参数，我们需要先创建或获取对应的参数定义
+                            # 查找设备类型中是否已经有这个参数定义（可能之前创建过）
+                            custom_param_def = db.query(DeviceTypeParameter).filter(
+                                DeviceTypeParameter.device_type_id == device.device_type_id,
+                                DeviceTypeParameter.param_key == param_key
+                            ).first()
+                            
+                            if not custom_param_def:
+                                # 如果不存在，创建参数定义
+                                param_type = 'number' if param_key in ['icon_rotation_angle', 'rotation_angle'] else 'boolean'
+                                param_name_map = {
+                                    'icon_rotation_angle': '图标旋转角度',
+                                    'icon_flip_horizontal': '图标水平翻转',
+                                    'icon_flip_vertical': '图标垂直翻转',
+                                    'rotation_angle': '旋转角度',
+                                    'flip_horizontal': '水平翻转',
+                                    'flip_vertical': '垂直翻转'
+                                }
+                                param_name = param_name_map.get(param_key, param_key)
+                                
+                                custom_param_def = DeviceTypeParameter(
+                                    device_type_id=device.device_type_id,
+                                    param_key=param_key,
+                                    param_name=param_name,
+                                    param_type=param_type,
+                                    required=False,
+                                    sort_order=999  # 放在最后
+                                )
+                                db.add(custom_param_def)
+                                db.flush()  # 刷新以获取新创建的参数定义ID
+                            
+                            # 更新或创建参数值
+                            if param_key in existing_params:
+                                existing_params[param_key].param_value = str_value
+                                existing_params[param_key].parameter_id = custom_param_def.id
+                                existing_params[param_key].updated_at = datetime.utcnow()
+                            else:
+                                param_value_obj = DeviceParameterValue(
+                                    device_id=device.id,
+                                    parameter_id=custom_param_def.id,
+                                    param_key=param_key,
+                                    param_value=str_value
+                                )
+                                db.add(param_value_obj)
+                                existing_params[param_key] = param_value_obj
             
             # 提交事务
             db.commit()
@@ -902,6 +1016,58 @@ def register_routes(app: Flask) -> None:
                 db.rollback()
             import traceback
             error_trace = traceback.format_exc()
+            return jsonify({"error": str(e), "traceback": error_trace}), 500
+        finally:
+            if 'db' in locals():
+                db.close()
+
+    @app.post("/api/devices/<int:device_id>/icon")
+    def save_device_icon(device_id):
+        """保存设备图标 SVG 文件"""
+        try:
+            data = request.get_json()
+            svg_content = data.get('svg_content')
+            
+            if not svg_content:
+                return jsonify({"error": "SVG 内容不能为空"}), 400
+            
+            db = next(get_db())
+            
+            # 查询设备信息
+            device = db.query(Device).filter(Device.id == device_id).first()
+            if not device:
+                return jsonify({"error": "设备不存在"}), 404
+            
+            if not device.code:
+                return jsonify({"error": "设备代码不能为空"}), 400
+            
+            # 创建静态文件目录
+            icons_dir = os.path.join(os.path.dirname(__file__), 'static', 'device-icons')
+            os.makedirs(icons_dir, exist_ok=True)
+            
+            # 使用设备代码作为文件名
+            filename = f"{device.code}.svg"
+            file_path = os.path.join(icons_dir, filename)
+            
+            # 保存 SVG 文件
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(svg_content)
+            
+            # 返回文件的访问 URL
+            icon_url = f"/static/device-icons/{filename}"
+            
+            return jsonify({
+                "message": "图标保存成功",
+                "icon_url": icon_url,
+                "filename": filename
+            }), 200
+        except Exception as e:
+            if 'db' in locals():
+                db.rollback()
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"保存设备图标失败: {str(e)}")
+            print(error_trace)
             return jsonify({"error": str(e), "traceback": error_trace}), 500
         finally:
             if 'db' in locals():
@@ -959,15 +1125,23 @@ def register_routes(app: Flask) -> None:
             traffic_lights = []
             
             for device in devices:
-                # 从参数值中获取 ip_address 和 traffic_light_status
+                # 从参数值中获取 ip_address、traffic_light_status 和 type
                 ip_address = None
                 traffic_light_status = None
+                device_type_param = None
+                # 收集所有参数（用于摄像头图标显示设置等）
+                parameters = {}
                 if device.parameter_values:
                     for pv in device.parameter_values:
                         if pv.param_key == "ip_address":
                             ip_address = pv.param_value
                         elif pv.param_key == "traffic_light_status":
                             traffic_light_status = pv.param_value
+                        elif pv.param_key == "type":
+                            device_type_param = pv.param_value
+                        
+                        # 收集所有参数值（包括图标显示相关参数）
+                        parameters[pv.param_key] = pv.param_value
                 
                 device_dict = {
                     "id": device.id,
@@ -978,12 +1152,16 @@ def register_routes(app: Flask) -> None:
                     "status": device.status or "online",
                     "longitude": device.longitude,
                     "latitude": device.latitude,
-                    "ip_address": ip_address
+                    "ip_address": ip_address,
+                    "parameters": parameters  # 添加所有参数，便于前端使用
                 }
                 
-                # 如果是红绿灯，添加状态信息
+                # 如果是红绿灯，添加状态信息和其他参数
                 if device.device_type and device.device_type.code == 'traffic_light':
                     device_dict["traffic_light_status"] = traffic_light_status
+                    # 添加类型参数值（设备类型特有参数中的"类型"字段），使用 type_name 避免与设备类型代码冲突
+                    if device_type_param:
+                        device_dict["type_name"] = device_type_param
                 
                 devices_data.append(device_dict)
                 
@@ -1057,6 +1235,29 @@ def register_routes(app: Flask) -> None:
         finally:
             if 'db' in locals():
                 db.close()
+    
+    @app.get("/intersections")
+    def get_intersections():
+        """获取路口列表（兼容 TellhowTraffic 前端）"""
+        try:
+            # 这个接口是为了兼容 TellhowTraffic 前端的调用
+            # 目前返回空数组，如果有路口表的话可以返回实际数据
+            per_page = request.args.get("per_page", 100, type=int)
+            
+            # 暂时返回空数组
+            # 如果有路口表，可以在这里查询并返回
+            return jsonify({
+                "items": []
+            }), 200
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"获取路口列表失败: {str(e)}")
+            print(error_trace)
+            return jsonify({"error": str(e), "traceback": error_trace}), 500
+        finally:
+            if 'db' in locals():
+                db.close()
 
     @app.get("/video-streams/device/<int:device_id>")
     def get_device_video_stream(device_id):
@@ -1084,6 +1285,17 @@ def register_routes(app: Flask) -> None:
             if 'db' in locals():
                 db.close()
 
+    @app.get("/hls-streams/<int:stream_id>/playlist.m3u8")
+    def hls_playlist_redirect(stream_id):
+        """HLS 播放列表重定向（兼容旧接口）"""
+        # 兼容旧的 HLS 流请求，重定向到新的视频流接口
+        # 或者返回友好的错误信息
+        return jsonify({
+            "error": "HLS流接口已迁移",
+            "message": f"请使用 /video-streams/stream/{stream_id} 访问视频流",
+            "new_url": f"/video-streams/stream/{stream_id}"
+        }), 404
+
     @app.get("/video-streams/stream/<int:stream_id>")
     def stream_video(stream_id):
         """流式传输视频文件"""
@@ -1110,7 +1322,14 @@ def register_routes(app: Flask) -> None:
                     file_path = os.path.join(PROJECT_ROOT, file_path)
             
             if not os.path.exists(file_path):
-                return jsonify({"error": f"视频文件不存在: {file_path}"}), 404
+                # 提供更友好的错误信息
+                error_msg = f"视频文件不存在: {os.path.basename(file_path)}"
+                print(f"视频文件不存在: {file_path}")
+                return jsonify({
+                    "error": error_msg,
+                    "file_path": file_path,
+                    "hint": "请检查视频文件是否已上传到服务器"
+                }), 404
             
             # 根据文件扩展名确定MIME类型
             file_ext = os.path.splitext(file_path)[1].lower()
