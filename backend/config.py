@@ -48,10 +48,10 @@ def get_database_config() -> DatabaseConfig:
             database=os.getenv("DB_NAME", "iiot_platform"),
         )
     else:
-        # 开发模式：优先使用环境变量，如果没有则使用内网数据库（因为外部数据库可能不可用）
+        # 开发模式：优先使用环境变量，如果没有则使用公网数据库地址
         return DatabaseConfig(
-            host=os.getenv("DB_HOST", "192.168.34.14"),
-            port=int(os.getenv("DB_PORT", "5432")),
+            host=os.getenv("DB_HOST", "166.111.80.127"),
+            port=int(os.getenv("DB_PORT", "15432")),
             user=os.getenv("DB_USER", "admin"),
             password=os.getenv("DB_PASSWORD", "iiotAdmin123"),
             database=os.getenv("DB_NAME", "iiot_platform"),

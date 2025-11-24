@@ -1336,6 +1336,10 @@ def register_routes(app: Flask) -> None:
             mime_types = {
                 '.ts': 'video/mp2t',
                 '.mp4': 'video/mp4',
+                '.avi': 'video/x-msvideo',
+                '.mkv': 'video/x-matroska',
+                '.mov': 'video/quicktime',
+                '.webm': 'video/webm',
                 '.m3u8': 'application/vnd.apple.mpegurl',
                 '.m4s': 'video/iso.segment'
             }

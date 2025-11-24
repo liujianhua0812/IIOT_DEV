@@ -7,9 +7,9 @@ import sys
 os.environ["FLASK_ENV"] = "development"
 
 # 设置开发环境数据库配置
-# 本地开发环境使用内网数据库（外部地址166.111.80.127:15432仅对公网访问有效）
-os.environ.setdefault("DB_HOST", "192.168.34.14")
-os.environ.setdefault("DB_PORT", "5432")
+# 开发环境使用公网数据库地址
+os.environ.setdefault("DB_HOST", "166.111.80.127")
+os.environ.setdefault("DB_PORT", "15432")
 
 # 导入并运行应用
 from app import app

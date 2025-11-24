@@ -1577,9 +1577,20 @@ const loadCameraVideo = async (camera) => {
       videoPlayer.value.load()
     }
     
+    // 检查视频流类型和文件格式
+    const streamType = currentVideoStream.value.stream_type || 'file'
+    const filePath = currentVideoStream.value.file_path || ''
+    const isAviFile = filePath.toLowerCase().endsWith('.avi')
+    
+    // 如果文件是 AVI 格式，提前提示浏览器可能不支持
+    if (isAviFile) {
+      console.warn('检测到 AVI 格式视频，浏览器可能不支持原生播放')
+      // 不阻止加载，让浏览器尝试，如果失败会触发错误处理
+    }
+    
     // 设置新的视频源
     videoPlayer.value.src = videoUrl
-    console.log('视频源已设置，开始加载...')
+    console.log('视频源已设置，开始加载...', { videoUrl, streamType, filePath })
     
     // 移除旧的事件监听器（如果存在）
     if (videoEventHandlers.value.onLoadedMetadata) {
@@ -1618,15 +1629,24 @@ const loadCameraVideo = async (camera) => {
         let errorMsg = '视频播放失败'
         if (error.code === 4) {
           // MEDIA_ELEMENT_ERROR: Format error - 通常是文件不存在或格式不支持
-          errorMsg = '视频文件不存在或格式不支持，请检查文件路径'
+          if (isAviFile) {
+            errorMsg = '浏览器不支持 AVI 格式视频播放。建议：1) 使用支持 AVI 的播放器（如 VLC）下载视频；2) 或联系管理员将视频转换为 MP4 格式'
+          } else {
+            errorMsg = '视频格式不支持或文件不存在。请检查文件路径或联系管理员'
+          }
         } else if (error.code === 2) {
-          errorMsg = '网络错误，无法加载视频'
+          errorMsg = '网络错误，无法加载视频。请检查网络连接或稍后重试'
         } else if (error.code === 3) {
-          errorMsg = '视频解码失败，可能是不支持的格式'
+          errorMsg = '视频解码失败，可能是不支持的格式或文件损坏'
         } else {
           errorMsg = `视频播放失败: ${error.message || '未知错误'} (错误代码: ${error.code})`
         }
         errorMessage.value = errorMsg
+        
+        // 如果是 AVI 格式错误，提供下载链接
+        if (error.code === 4 && isAviFile) {
+          console.log('AVI 格式不支持，可以提供下载链接')
+        }
       } else {
         errorMessage.value = '视频加载失败，请稍后重试'
       }
@@ -2035,6 +2055,10 @@ const handleVideoLoadedData = () => {
             >
               您的浏览器不支持视频播放
             </video>
+            <!-- 错误提示 -->
+            <div v-if="errorMessage" class="video-error-section">
+              <p class="error-text">{{ errorMessage }}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -2635,6 +2659,22 @@ const handleVideoLoadedData = () => {
   text-align: center;
   padding: 40px;
   color: rgba(214, 232, 255, 0.6);
+}
+
+.video-error-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: rgba(255, 77, 77, 0.1);
+  border: 1px solid rgba(255, 77, 77, 0.3);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.error-text {
+  color: #ff6b6b;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
 }
 
 .video-container {
